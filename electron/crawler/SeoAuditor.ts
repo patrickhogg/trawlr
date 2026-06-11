@@ -1,8 +1,23 @@
 /**
  * SeoAuditor - Extracts and validates SEO meta tags from HTML content.
+ * Limits are configurable via the SeoLimits interface.
  */
 
 import * as cheerio from 'cheerio'
+
+export interface SeoLimits {
+  titleMin: number
+  titleMax: number
+  descriptionMin: number
+  descriptionMax: number
+}
+
+export const DEFAULT_SEO_LIMITS: SeoLimits = {
+  titleMin: 30,
+  titleMax: 60,
+  descriptionMin: 120,
+  descriptionMax: 160,
+}
 
 export interface SeoResult {
   title: {
@@ -24,13 +39,20 @@ export interface SeoResult {
   }
 }
 
-// Industry standard limits
-const TITLE_MIN = 30
-const TITLE_MAX = 60
-const DESCRIPTION_MIN = 120
-const DESCRIPTION_MAX = 160
-
 export class SeoAuditor {
+  private limits: SeoLimits
+
+  constructor(limits?: Partial<SeoLimits>) {
+    this.limits = { ...DEFAULT_SEO_LIMITS, ...limits }
+  }
+
+  /**
+   * Update the limits used for auditing.
+   */
+  setLimits(limits: Partial<SeoLimits>): void {
+    Object.assign(this.limits, limits)
+  }
+
   /**
    * Audit HTML content for SEO meta tags.
    */
@@ -58,22 +80,23 @@ export class SeoAuditor {
     }
 
     const length = value.length
+    const { titleMin, titleMax } = this.limits
 
-    if (length < TITLE_MIN) {
+    if (length < titleMin) {
       return {
         value,
         length,
         status: 'warning',
-        message: `Title is too short (${length} chars). Recommended: ${TITLE_MIN}-${TITLE_MAX} characters`,
+        message: `Title is too short (${length} chars). Recommended: ${titleMin}-${titleMax} characters`,
       }
     }
 
-    if (length > TITLE_MAX) {
+    if (length > titleMax) {
       return {
         value,
         length,
         status: 'warning',
-        message: `Title is too long (${length} chars). Recommended: ${TITLE_MIN}-${TITLE_MAX} characters`,
+        message: `Title is too long (${length} chars). Recommended: ${titleMin}-${titleMax} characters`,
       }
     }
 
@@ -99,22 +122,23 @@ export class SeoAuditor {
     }
 
     const length = value.length
+    const { descriptionMin, descriptionMax } = this.limits
 
-    if (length < DESCRIPTION_MIN) {
+    if (length < descriptionMin) {
       return {
         value,
         length,
         status: 'warning',
-        message: `Meta description is too short (${length} chars). Recommended: ${DESCRIPTION_MIN}-${DESCRIPTION_MAX} characters`,
+        message: `Meta description is too short (${length} chars). Recommended: ${descriptionMin}-${descriptionMax} characters`,
       }
     }
 
-    if (length > DESCRIPTION_MAX) {
+    if (length > descriptionMax) {
       return {
         value,
         length,
         status: 'warning',
-        message: `Meta description is too long (${length} chars). Recommended: ${DESCRIPTION_MIN}-${DESCRIPTION_MAX} characters`,
+        message: `Meta description is too long (${length} chars). Recommended: ${descriptionMin}-${descriptionMax} characters`,
       }
     }
 

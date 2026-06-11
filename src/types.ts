@@ -18,6 +18,11 @@ export interface CrawlSettings {
   concurrency: number
   maxPages: number
   rateLimitMs: number
+  checkExternalLinks: boolean
+  titleMinLength: number
+  titleMaxLength: number
+  descriptionMinLength: number
+  descriptionMaxLength: number
   userAgent?: string
 }
 

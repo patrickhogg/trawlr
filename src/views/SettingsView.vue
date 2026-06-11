@@ -14,6 +14,11 @@ const emit = defineEmits<{
 const concurrency = ref(props.settings.concurrency)
 const maxPages = ref(props.settings.maxPages)
 const rateLimitMs = ref(props.settings.rateLimitMs)
+const checkExternalLinks = ref(props.settings.checkExternalLinks)
+const titleMinLength = ref(props.settings.titleMinLength)
+const titleMaxLength = ref(props.settings.titleMaxLength)
+const descriptionMinLength = ref(props.settings.descriptionMinLength)
+const descriptionMaxLength = ref(props.settings.descriptionMaxLength)
 const userAgent = ref(props.settings.userAgent || '')
 const defaultUA = ref('')
 
@@ -26,6 +31,11 @@ watch(() => props.settings, (s) => {
   concurrency.value = s.concurrency
   maxPages.value = s.maxPages
   rateLimitMs.value = s.rateLimitMs
+  checkExternalLinks.value = s.checkExternalLinks
+  titleMinLength.value = s.titleMinLength
+  titleMaxLength.value = s.titleMaxLength
+  descriptionMinLength.value = s.descriptionMinLength
+  descriptionMaxLength.value = s.descriptionMaxLength
   userAgent.value = s.userAgent || ''
 }, { deep: true })
 
@@ -45,6 +55,19 @@ function updateRateLimit() {
   const val = Math.max(0, rateLimitMs.value)
   rateLimitMs.value = val
   emit('update', { rateLimitMs: val })
+}
+
+function toggleCheckExternalLinks() {
+  emit('update', { checkExternalLinks: checkExternalLinks.value })
+}
+
+function updateSeoLimits() {
+  emit('update', {
+    titleMinLength: Math.max(0, titleMinLength.value),
+    titleMaxLength: Math.max(titleMinLength.value, titleMaxLength.value),
+    descriptionMinLength: Math.max(0, descriptionMinLength.value),
+    descriptionMaxLength: Math.max(descriptionMinLength.value, descriptionMaxLength.value),
+  })
 }
 
 function updateUserAgent() {
@@ -127,6 +150,112 @@ function resetUserAgent() {
             :disabled="isCrawling"
             @change="updateRateLimit"
           />
+        </div>
+
+        <!-- Check External Links -->
+        <div class="setting-group">
+          <label class="setting-label" for="setting-check-external">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            Check External Links
+          </label>
+          <p class="setting-description">When enabled, external links will be checked for broken status. Disabling speeds up crawls.</p>
+          <label class="toggle-wrapper">
+            <input
+              id="setting-check-external"
+              v-model="checkExternalLinks"
+              type="checkbox"
+              class="toggle-input"
+              :disabled="isCrawling"
+              @change="toggleCheckExternalLinks"
+            />
+            <span class="toggle-slider" />
+            <span class="toggle-label">{{ checkExternalLinks ? 'On' : 'Off' }}</span>
+          </label>
+        </div>
+
+        <!-- SEO Title Limits -->
+        <div class="setting-group">
+          <label class="setting-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 7V4h16v3" />
+              <path d="M9 20h6" />
+              <path d="M12 4v16" />
+            </svg>
+            Title Tag Length
+          </label>
+          <p class="setting-description">Accepted character range for page titles</p>
+          <div class="range-inputs">
+            <div class="range-field">
+              <label for="setting-title-min">Min</label>
+              <input
+                id="setting-title-min"
+                v-model.number="titleMinLength"
+                type="number"
+                class="input input-sm setting-input"
+                min="0"
+                :disabled="isCrawling"
+                @change="updateSeoLimits"
+              />
+            </div>
+            <span class="range-separator">–</span>
+            <div class="range-field">
+              <label for="setting-title-max">Max</label>
+              <input
+                id="setting-title-max"
+                v-model.number="titleMaxLength"
+                type="number"
+                class="input input-sm setting-input"
+                min="1"
+                :disabled="isCrawling"
+                @change="updateSeoLimits"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- SEO Description Limits -->
+        <div class="setting-group">
+          <label class="setting-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="17" y1="10" x2="3" y2="10" />
+              <line x1="21" y1="6" x2="3" y2="6" />
+              <line x1="21" y1="14" x2="3" y2="14" />
+              <line x1="17" y1="18" x2="3" y2="18" />
+            </svg>
+            Description Length
+          </label>
+          <p class="setting-description">Accepted character range for meta descriptions</p>
+          <div class="range-inputs">
+            <div class="range-field">
+              <label for="setting-desc-min">Min</label>
+              <input
+                id="setting-desc-min"
+                v-model.number="descriptionMinLength"
+                type="number"
+                class="input input-sm setting-input"
+                min="0"
+                :disabled="isCrawling"
+                @change="updateSeoLimits"
+              />
+            </div>
+            <span class="range-separator">–</span>
+            <div class="range-field">
+              <label for="setting-desc-max">Max</label>
+              <input
+                id="setting-desc-max"
+                v-model.number="descriptionMaxLength"
+                type="number"
+                class="input input-sm setting-input"
+                min="1"
+                :disabled="isCrawling"
+                @change="updateSeoLimits"
+              />
+            </div>
+          </div>
         </div>
 
         <!-- User Agent -->
@@ -255,6 +384,36 @@ function resetUserAgent() {
   max-width: 160px;
 }
 
+.range-inputs {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.range-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.range-field label {
+  font-size: 0.6875rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.range-field .input {
+  max-width: 80px;
+}
+
+.range-separator {
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  padding-bottom: 6px;
+}
+
 .ua-input-group {
   display: flex;
   gap: 10px;
@@ -293,5 +452,62 @@ function resetUserAgent() {
   gap: 10px;
   color: var(--color-text-secondary);
   font-size: 0.8125rem;
+}
+
+/* Toggle Switch */
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.toggle-input {
+  display: none;
+}
+
+.toggle-slider {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--color-bg-hover);
+  border-radius: 11px;
+  border: 1px solid var(--color-border);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toggle-slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: var(--color-text-muted);
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.toggle-input:checked + .toggle-slider {
+  background: rgba(56, 189, 248, 0.3);
+  border-color: var(--color-accent);
+}
+
+.toggle-input:checked + .toggle-slider::after {
+  left: 20px;
+  background: var(--color-accent);
+}
+
+.toggle-input:disabled + .toggle-slider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle-label {
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
 }
 </style>

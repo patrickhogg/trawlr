@@ -50951,11 +50951,23 @@ class HttpClient {
     return new Promise((resolve2) => setTimeout(resolve2, ms));
   }
 }
-const TITLE_MIN = 30;
-const TITLE_MAX = 60;
-const DESCRIPTION_MIN = 120;
-const DESCRIPTION_MAX = 160;
+const DEFAULT_SEO_LIMITS = {
+  titleMin: 30,
+  titleMax: 60,
+  descriptionMin: 120,
+  descriptionMax: 160
+};
 class SeoAuditor {
+  constructor(limits) {
+    __publicField(this, "limits");
+    this.limits = { ...DEFAULT_SEO_LIMITS, ...limits };
+  }
+  /**
+   * Update the limits used for auditing.
+   */
+  setLimits(limits) {
+    Object.assign(this.limits, limits);
+  }
   /**
    * Audit HTML content for SEO meta tags.
    */
@@ -50979,20 +50991,21 @@ class SeoAuditor {
       };
     }
     const length = value.length;
-    if (length < TITLE_MIN) {
+    const { titleMin, titleMax } = this.limits;
+    if (length < titleMin) {
       return {
         value,
         length,
         status: "warning",
-        message: `Title is too short (${length} chars). Recommended: ${TITLE_MIN}-${TITLE_MAX} characters`
+        message: `Title is too short (${length} chars). Recommended: ${titleMin}-${titleMax} characters`
       };
     }
-    if (length > TITLE_MAX) {
+    if (length > titleMax) {
       return {
         value,
         length,
         status: "warning",
-        message: `Title is too long (${length} chars). Recommended: ${TITLE_MIN}-${TITLE_MAX} characters`
+        message: `Title is too long (${length} chars). Recommended: ${titleMin}-${titleMax} characters`
       };
     }
     return {
@@ -51015,20 +51028,21 @@ class SeoAuditor {
       };
     }
     const length = value.length;
-    if (length < DESCRIPTION_MIN) {
+    const { descriptionMin, descriptionMax } = this.limits;
+    if (length < descriptionMin) {
       return {
         value,
         length,
         status: "warning",
-        message: `Meta description is too short (${length} chars). Recommended: ${DESCRIPTION_MIN}-${DESCRIPTION_MAX} characters`
+        message: `Meta description is too short (${length} chars). Recommended: ${descriptionMin}-${descriptionMax} characters`
       };
     }
-    if (length > DESCRIPTION_MAX) {
+    if (length > descriptionMax) {
       return {
         value,
         length,
         status: "warning",
-        message: `Meta description is too long (${length} chars). Recommended: ${DESCRIPTION_MIN}-${DESCRIPTION_MAX} characters`
+        message: `Meta description is too long (${length} chars). Recommended: ${descriptionMin}-${descriptionMax} characters`
       };
     }
     return {
@@ -51159,10 +51173,14 @@ class RobotsParser {
 class CrawlEngine {
   constructor() {
     __publicField(this, "httpClient");
+    __publicField(this, "linkCheckClient");
+    // Separate client for link checks — no rate limit
     __publicField(this, "seoAuditor");
     __publicField(this, "robotsParser");
     __publicField(this, "queue", null);
+    __publicField(this, "linkCheckQueue", null);
     __publicField(this, "visited", /* @__PURE__ */ new Set());
+    __publicField(this, "checkedLinks", /* @__PURE__ */ new Map());
     __publicField(this, "urlQueue", []);
     __publicField(this, "pages", []);
     __publicField(this, "allLinks", []);
@@ -51177,6 +51195,7 @@ class CrawlEngine {
     __publicField(this, "onProgress", null);
     __publicField(this, "onPage", null);
     this.httpClient = new HttpClient();
+    this.linkCheckClient = new HttpClient();
     this.seoAuditor = new SeoAuditor();
     this.robotsParser = new RobotsParser();
   }
@@ -51189,11 +51208,19 @@ class CrawlEngine {
     this.onProgress = onProgress || null;
     this.onPage = onPage || null;
     this.httpClient = new HttpClient(settings.userAgent, settings.rateLimitMs);
+    this.linkCheckClient = new HttpClient(settings.userAgent, 0);
+    this.seoAuditor.setLimits({
+      titleMin: settings.titleMinLength || 30,
+      titleMax: settings.titleMaxLength || 60,
+      descriptionMin: settings.descriptionMinLength || 120,
+      descriptionMax: settings.descriptionMaxLength || 160
+    });
     const seedParsed = new URL(settings.seedUrl);
     this.seedOrigin = seedParsed.origin;
     this.seedRootDomain = this.extractRootDomain(seedParsed.hostname);
     await this.robotsParser.fetchRobotsTxt(settings.seedUrl, this.httpClient.getUserAgent());
     this.queue = new PQueue({ concurrency: settings.concurrency });
+    this.linkCheckQueue = new PQueue({ concurrency: settings.concurrency * 3 });
     this.status = "crawling";
     this.startTime = Date.now();
     const normalizedSeed = this.normalizeUrl(settings.seedUrl);
@@ -51201,6 +51228,9 @@ class CrawlEngine {
     this.urlQueue.push(normalizedSeed);
     this.emitProgress();
     await this.processQueue();
+    if (this.linkCheckQueue) {
+      await this.linkCheckQueue.onIdle();
+    }
     if (this.status === "crawling") {
       this.status = "completed";
     }
@@ -51212,13 +51242,9 @@ class CrawlEngine {
    */
   cancel() {
     this.status = "cancelled";
-    if (this.queue) {
-      this.queue.clear();
-    }
+    if (this.queue) this.queue.clear();
+    if (this.linkCheckQueue) this.linkCheckQueue.clear();
   }
-  /**
-   * Get current results.
-   */
   getResults() {
     return {
       pages: [...this.pages],
@@ -51226,9 +51252,6 @@ class CrawlEngine {
       progress: this.getProgress()
     };
   }
-  /**
-   * Get current progress.
-   */
   getProgress() {
     var _a3;
     return {
@@ -51246,9 +51269,7 @@ class CrawlEngine {
   async processQueue() {
     var _a3, _b2;
     while (this.urlQueue.length > 0 && this.status === "crawling") {
-      if (this.pages.length >= (((_a3 = this.settings) == null ? void 0 : _a3.maxPages) || 800)) {
-        break;
-      }
+      if (this.pages.length >= (((_a3 = this.settings) == null ? void 0 : _a3.maxPages) || 800)) break;
       const batch = this.urlQueue.splice(0, ((_b2 = this.settings) == null ? void 0 : _b2.concurrency) || 10);
       const promises = batch.map(
         (url) => this.queue.add(async () => {
@@ -51263,10 +51284,9 @@ class CrawlEngine {
     }
   }
   async crawlPage(url) {
+    var _a3;
     if (this.status !== "crawling") return;
-    if (!this.robotsParser.isAllowed(url)) {
-      return;
-    }
+    if (!this.robotsParser.isAllowed(url)) return;
     try {
       const response2 = await this.httpClient.fetch(url, true);
       if (response2.redirectChain.length > 0) {
@@ -51283,39 +51303,41 @@ class CrawlEngine {
         }
         const rawLinks = this.extractLinks(response2.body, response2.finalUrl);
         for (const link of rawLinks) {
-          if (this.status !== "crawling") break;
           const linkType = this.classifyLink(link.href);
-          let linkStatus = null;
-          try {
-            linkStatus = await this.httpClient.fetch(link.href, false);
-          } catch {
-            linkStatus = null;
-          }
           const discoveredLink = {
             sourceUrl: url,
             targetUrl: link.href,
             anchorText: link.text,
             type: linkType,
-            statusCode: (linkStatus == null ? void 0 : linkStatus.statusCode) || 0,
-            redirectChain: (linkStatus == null ? void 0 : linkStatus.redirectChain) || [],
-            isBroken: !linkStatus || linkStatus.statusCode >= 400 || linkStatus.statusCode === 0,
-            error: (linkStatus == null ? void 0 : linkStatus.error) || null
+            statusCode: 0,
+            redirectChain: [],
+            isBroken: false,
+            error: null
           };
-          if (discoveredLink.isBroken) {
-            this.brokenLinksCount++;
-          }
-          if (discoveredLink.redirectChain.length > 0) {
-            this.redirectCount++;
-          }
-          discoveredLinks.push(discoveredLink);
-          this.allLinks.push(discoveredLink);
-          if (linkType === "internal" && !this.visited.has(link.href)) {
+          if (linkType === "internal") {
             const normalized = this.normalizeUrl(link.href);
             if (!this.visited.has(normalized) && this.robotsParser.isAllowed(normalized)) {
               this.visited.add(normalized);
               this.urlQueue.push(normalized);
             }
+            const existingPage = this.pages.find(
+              (p) => this.normalizeUrl(p.url) === this.normalizeUrl(link.href)
+            );
+            if (existingPage) {
+              discoveredLink.statusCode = existingPage.statusCode;
+              discoveredLink.redirectChain = existingPage.redirectChain;
+              discoveredLink.isBroken = existingPage.statusCode >= 400 || existingPage.statusCode === 0;
+              discoveredLink.error = existingPage.error;
+              if (discoveredLink.isBroken) this.brokenLinksCount++;
+              if (discoveredLink.redirectChain.length > 0) this.redirectCount++;
+            }
+          } else {
+            if ((_a3 = this.settings) == null ? void 0 : _a3.checkExternalLinks) {
+              this.queueLinkCheck(discoveredLink);
+            }
           }
+          discoveredLinks.push(discoveredLink);
+          this.allLinks.push(discoveredLink);
         }
       }
       const page = {
@@ -51329,9 +51351,8 @@ class CrawlEngine {
         crawledAt: Date.now()
       };
       this.pages.push(page);
-      if (this.onPage) {
-        this.onPage(page);
-      }
+      this.updateInternalLinkStatus(url, response2.statusCode, response2.redirectChain, response2.error);
+      if (this.onPage) this.onPage(page);
       this.emitProgress();
     } catch (err) {
       const page = {
@@ -51346,6 +51367,68 @@ class CrawlEngine {
       };
       this.pages.push(page);
       this.emitProgress();
+    }
+  }
+  /**
+   * Queue a parallel external link status check.
+   * Uses a high-concurrency queue with NO rate limiting.
+   * Results are cached to avoid re-checking the same URL.
+   */
+  queueLinkCheck(link) {
+    const cached = this.checkedLinks.get(link.targetUrl);
+    if (cached) {
+      link.statusCode = cached.statusCode;
+      link.redirectChain = cached.redirectChain;
+      link.isBroken = cached.statusCode >= 400 || cached.statusCode === 0;
+      link.error = cached.error;
+      if (link.isBroken) this.brokenLinksCount++;
+      if (link.redirectChain.length > 0) this.redirectCount++;
+      return;
+    }
+    if (!this.linkCheckQueue) return;
+    this.linkCheckQueue.add(async () => {
+      if (this.status !== "crawling") return;
+      try {
+        const response2 = await this.linkCheckClient.fetch(link.targetUrl, false);
+        link.statusCode = response2.statusCode;
+        link.redirectChain = response2.redirectChain;
+        link.isBroken = response2.statusCode >= 400 || response2.statusCode === 0;
+        link.error = response2.error;
+        this.checkedLinks.set(link.targetUrl, {
+          statusCode: response2.statusCode,
+          redirectChain: response2.redirectChain,
+          error: response2.error
+        });
+      } catch (err) {
+        link.statusCode = 0;
+        link.isBroken = true;
+        link.error = err.message || "Unknown error";
+        this.checkedLinks.set(link.targetUrl, {
+          statusCode: 0,
+          redirectChain: [],
+          error: link.error
+        });
+      }
+      if (link.isBroken) this.brokenLinksCount++;
+      if (link.redirectChain.length > 0) this.redirectCount++;
+      this.emitProgress();
+    });
+  }
+  /**
+   * When a page is crawled, backfill status for any links discovered earlier
+   * that point to this URL but didn't have status yet.
+   */
+  updateInternalLinkStatus(url, statusCode, redirectChain, error) {
+    const normalized = this.normalizeUrl(url);
+    for (const link of this.allLinks) {
+      if (link.type === "internal" && link.statusCode === 0 && this.normalizeUrl(link.targetUrl) === normalized) {
+        link.statusCode = statusCode;
+        link.redirectChain = redirectChain;
+        link.isBroken = statusCode >= 400 || statusCode === 0;
+        link.error = error;
+        if (link.isBroken) this.brokenLinksCount++;
+        if (link.redirectChain.length > 0) this.redirectCount++;
+      }
     }
   }
   extractLinks(html2, baseUrl) {
@@ -51382,11 +51465,6 @@ class CrawlEngine {
       return "external";
     }
   }
-  /**
-   * Extract the root domain from a hostname.
-   * e.g., 'blog.example.com' → 'example.com'
-   * e.g., 'example.co.uk' → 'example.co.uk'
-   */
   extractRootDomain(hostname) {
     const parts = hostname.split(".");
     if (parts.length <= 2) return hostname;
@@ -51420,6 +51498,7 @@ class CrawlEngine {
   }
   reset() {
     this.visited.clear();
+    this.checkedLinks.clear();
     this.urlQueue = [];
     this.pages = [];
     this.allLinks = [];
@@ -51432,9 +51511,8 @@ class CrawlEngine {
     this.redirectCount = 0;
     this.seoIssuesCount = 0;
     this.robotsParser.clear();
-    if (this.queue) {
-      this.queue.clear();
-    }
+    if (this.queue) this.queue.clear();
+    if (this.linkCheckQueue) this.linkCheckQueue.clear();
   }
 }
 let engine = null;

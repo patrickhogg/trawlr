@@ -36,6 +36,11 @@ const settings = reactive<CrawlSettings>({
   concurrency: 10,
   maxPages: 800,
   rateLimitMs: 100,
+  checkExternalLinks: false,
+  titleMinLength: 30,
+  titleMaxLength: 60,
+  descriptionMinLength: 120,
+  descriptionMaxLength: 160,
   userAgent: '',
 })
 

@@ -2,6 +2,9 @@
  * CrawlEngine - Core crawling engine that coordinates URL discovery,
  * link classification, broken link detection, redirect tracking, and SEO auditing.
  * Uses BFS traversal with configurable concurrency via p-queue.
+ *
+ * Performance: Links are discovered instantly during page crawls. Internal links
+ * get their status when crawled. External links are batch-checked in parallel.
  */
 
 import * as cheerio from 'cheerio'
@@ -17,6 +20,11 @@ export interface CrawlSettings {
   concurrency: number
   maxPages: number
   rateLimitMs: number
+  checkExternalLinks: boolean
+  titleMinLength: number
+  titleMaxLength: number
+  descriptionMinLength: number
+  descriptionMaxLength: number
   userAgent?: string
 }
 
@@ -66,11 +74,14 @@ type PageCallback = (page: CrawledPage) => void
 
 export class CrawlEngine {
   private httpClient: HttpClient
+  private linkCheckClient: HttpClient // Separate client for link checks — no rate limit
   private seoAuditor: SeoAuditor
   private robotsParser: RobotsParser
   private queue: PQueue | null = null
+  private linkCheckQueue: PQueue | null = null
 
   private visited: Set<string> = new Set()
+  private checkedLinks: Map<string, { statusCode: number; redirectChain: RedirectHop[]; error: string | null }> = new Map()
   private urlQueue: string[] = []
   private pages: CrawledPage[] = []
   private allLinks: DiscoveredLink[] = []
@@ -90,6 +101,7 @@ export class CrawlEngine {
 
   constructor() {
     this.httpClient = new HttpClient()
+    this.linkCheckClient = new HttpClient()
     this.seoAuditor = new SeoAuditor()
     this.robotsParser = new RobotsParser()
   }
@@ -107,8 +119,18 @@ export class CrawlEngine {
     this.onProgress = onProgress || null
     this.onPage = onPage || null
 
-    // Configure HTTP client
+    // Main client has rate limiting for page fetches
     this.httpClient = new HttpClient(settings.userAgent, settings.rateLimitMs)
+    // Link check client has NO rate limiting for fast parallel checks
+    this.linkCheckClient = new HttpClient(settings.userAgent, 0)
+
+    // Configure SEO auditor with custom limits
+    this.seoAuditor.setLimits({
+      titleMin: settings.titleMinLength || 30,
+      titleMax: settings.titleMaxLength || 60,
+      descriptionMin: settings.descriptionMinLength || 120,
+      descriptionMax: settings.descriptionMaxLength || 160,
+    })
 
     // Parse seed URL
     const seedParsed = new URL(settings.seedUrl)
@@ -118,8 +140,10 @@ export class CrawlEngine {
     // Fetch robots.txt
     await this.robotsParser.fetchRobotsTxt(settings.seedUrl, this.httpClient.getUserAgent())
 
-    // Set up concurrency queue
+    // Set up concurrency queues
     this.queue = new PQueue({ concurrency: settings.concurrency })
+    // Higher concurrency for link checks since they're just HEAD requests
+    this.linkCheckQueue = new PQueue({ concurrency: settings.concurrency * 3 })
     this.status = 'crawling'
     this.startTime = Date.now()
 
@@ -130,8 +154,13 @@ export class CrawlEngine {
 
     this.emitProgress()
 
-    // Process the queue
+    // Process pages
     await this.processQueue()
+
+    // Wait for remaining external link checks to finish
+    if (this.linkCheckQueue) {
+      await this.linkCheckQueue.onIdle()
+    }
 
     if (this.status === 'crawling') {
       this.status = 'completed'
@@ -146,14 +175,10 @@ export class CrawlEngine {
    */
   cancel(): void {
     this.status = 'cancelled'
-    if (this.queue) {
-      this.queue.clear()
-    }
+    if (this.queue) this.queue.clear()
+    if (this.linkCheckQueue) this.linkCheckQueue.clear()
   }
 
-  /**
-   * Get current results.
-   */
   getResults(): CrawlResults {
     return {
       pages: [...this.pages],
@@ -162,9 +187,6 @@ export class CrawlEngine {
     }
   }
 
-  /**
-   * Get current progress.
-   */
   getProgress(): CrawlProgress {
     return {
       status: this.status,
@@ -182,10 +204,7 @@ export class CrawlEngine {
 
   private async processQueue(): Promise<void> {
     while (this.urlQueue.length > 0 && this.status === 'crawling') {
-      // Check max pages cap
-      if (this.pages.length >= (this.settings?.maxPages || 800)) {
-        break
-      }
+      if (this.pages.length >= (this.settings?.maxPages || 800)) break
 
       const batch = this.urlQueue.splice(0, this.settings?.concurrency || 10)
 
@@ -204,22 +223,16 @@ export class CrawlEngine {
 
   private async crawlPage(url: string): Promise<void> {
     if (this.status !== 'crawling') return
-
-    // Check robots.txt
-    if (!this.robotsParser.isAllowed(url)) {
-      return
-    }
+    if (!this.robotsParser.isAllowed(url)) return
 
     try {
-      // Fetch the page content
+      // Fetch the page content (rate-limited)
       const response = await this.httpClient.fetch(url, true)
 
-      // Track redirects
       if (response.redirectChain.length > 0) {
         this.redirectCount++
       }
 
-      // Parse HTML and extract data
       const contentType = response.headers['content-type'] || ''
       const isHtml = contentType.includes('text/html') || (!contentType && response.body)
 
@@ -227,61 +240,57 @@ export class CrawlEngine {
       const discoveredLinks: DiscoveredLink[] = []
 
       if (isHtml && response.body) {
-        // Run SEO audit
+        // SEO audit — instant (just string parsing)
         seo = this.seoAuditor.audit(response.body)
         if (this.hasSeoIssues(seo)) {
           this.seoIssuesCount++
         }
 
-        // Extract links
+        // Extract links — instant (just HTML parsing, no HTTP)
         const rawLinks = this.extractLinks(response.body, response.finalUrl)
 
-        // Check each link
         for (const link of rawLinks) {
-          if (this.status !== 'crawling') break
-
           const linkType = this.classifyLink(link.href)
-          let linkStatus: HttpResponse | null = null
-
-          // Check the link (HEAD request for status)
-          try {
-            linkStatus = await this.httpClient.fetch(link.href, false)
-          } catch {
-            linkStatus = null
-          }
 
           const discoveredLink: DiscoveredLink = {
             sourceUrl: url,
             targetUrl: link.href,
             anchorText: link.text,
             type: linkType,
-            statusCode: linkStatus?.statusCode || 0,
-            redirectChain: linkStatus?.redirectChain || [],
-            isBroken:
-              !linkStatus ||
-              linkStatus.statusCode >= 400 ||
-              linkStatus.statusCode === 0,
-            error: linkStatus?.error || null,
+            statusCode: 0,
+            redirectChain: [],
+            isBroken: false,
+            error: null,
           }
 
-          if (discoveredLink.isBroken) {
-            this.brokenLinksCount++
-          }
-          if (discoveredLink.redirectChain.length > 0) {
-            this.redirectCount++
-          }
-
-          discoveredLinks.push(discoveredLink)
-          this.allLinks.push(discoveredLink)
-
-          // If internal and not visited, add to queue
-          if (linkType === 'internal' && !this.visited.has(link.href)) {
+          if (linkType === 'internal') {
+            // Add to crawl queue if not visited — status captured when crawled
             const normalized = this.normalizeUrl(link.href)
             if (!this.visited.has(normalized) && this.robotsParser.isAllowed(normalized)) {
               this.visited.add(normalized)
               this.urlQueue.push(normalized)
             }
+            // If already crawled, fill in status from records
+            const existingPage = this.pages.find(
+              (p) => this.normalizeUrl(p.url) === this.normalizeUrl(link.href)
+            )
+            if (existingPage) {
+              discoveredLink.statusCode = existingPage.statusCode
+              discoveredLink.redirectChain = existingPage.redirectChain
+              discoveredLink.isBroken = existingPage.statusCode >= 400 || existingPage.statusCode === 0
+              discoveredLink.error = existingPage.error
+              if (discoveredLink.isBroken) this.brokenLinksCount++
+              if (discoveredLink.redirectChain.length > 0) this.redirectCount++
+            }
+          } else {
+            // External links: only check if setting is enabled
+            if (this.settings?.checkExternalLinks) {
+              this.queueLinkCheck(discoveredLink)
+            }
           }
+
+          discoveredLinks.push(discoveredLink)
+          this.allLinks.push(discoveredLink)
         }
       }
 
@@ -298,10 +307,10 @@ export class CrawlEngine {
 
       this.pages.push(page)
 
-      if (this.onPage) {
-        this.onPage(page)
-      }
+      // Backfill status for any earlier links that pointed to this URL
+      this.updateInternalLinkStatus(url, response.statusCode, response.redirectChain, response.error)
 
+      if (this.onPage) this.onPage(page)
       this.emitProgress()
     } catch (err: any) {
       const page: CrawledPage = {
@@ -319,10 +328,87 @@ export class CrawlEngine {
     }
   }
 
-  private extractLinks(
-    html: string,
-    baseUrl: string
-  ): { href: string; text: string }[] {
+  /**
+   * Queue a parallel external link status check.
+   * Uses a high-concurrency queue with NO rate limiting.
+   * Results are cached to avoid re-checking the same URL.
+   */
+  private queueLinkCheck(link: DiscoveredLink): void {
+    // Use cache if we already checked this URL
+    const cached = this.checkedLinks.get(link.targetUrl)
+    if (cached) {
+      link.statusCode = cached.statusCode
+      link.redirectChain = cached.redirectChain
+      link.isBroken = cached.statusCode >= 400 || cached.statusCode === 0
+      link.error = cached.error
+      if (link.isBroken) this.brokenLinksCount++
+      if (link.redirectChain.length > 0) this.redirectCount++
+      return
+    }
+
+    if (!this.linkCheckQueue) return
+
+    this.linkCheckQueue.add(async () => {
+      if (this.status !== 'crawling') return
+
+      try {
+        const response = await this.linkCheckClient.fetch(link.targetUrl, false)
+        link.statusCode = response.statusCode
+        link.redirectChain = response.redirectChain
+        link.isBroken = response.statusCode >= 400 || response.statusCode === 0
+        link.error = response.error
+
+        this.checkedLinks.set(link.targetUrl, {
+          statusCode: response.statusCode,
+          redirectChain: response.redirectChain,
+          error: response.error,
+        })
+      } catch (err: any) {
+        link.statusCode = 0
+        link.isBroken = true
+        link.error = err.message || 'Unknown error'
+
+        this.checkedLinks.set(link.targetUrl, {
+          statusCode: 0,
+          redirectChain: [],
+          error: link.error,
+        })
+      }
+
+      if (link.isBroken) this.brokenLinksCount++
+      if (link.redirectChain.length > 0) this.redirectCount++
+      this.emitProgress()
+    })
+  }
+
+  /**
+   * When a page is crawled, backfill status for any links discovered earlier
+   * that point to this URL but didn't have status yet.
+   */
+  private updateInternalLinkStatus(
+    url: string,
+    statusCode: number,
+    redirectChain: RedirectHop[],
+    error: string | null
+  ): void {
+    const normalized = this.normalizeUrl(url)
+    for (const link of this.allLinks) {
+      if (
+        link.type === 'internal' &&
+        link.statusCode === 0 &&
+        this.normalizeUrl(link.targetUrl) === normalized
+      ) {
+        link.statusCode = statusCode
+        link.redirectChain = redirectChain
+        link.isBroken = statusCode >= 400 || statusCode === 0
+        link.error = error
+        if (link.isBroken) this.brokenLinksCount++
+        if (link.redirectChain.length > 0) this.redirectCount++
+      }
+    }
+  }
+
+  private extractLinks(html: string, baseUrl: string): { href: string; text: string }[] {
     const $ = cheerio.load(html)
     const links: { href: string; text: string }[] = []
     const seen = new Set<string>()
@@ -331,7 +417,6 @@ export class CrawlEngine {
       const rawHref = $(el).attr('href')
       if (!rawHref) return
 
-      // Skip non-http links
       if (
         rawHref.startsWith('mailto:') ||
         rawHref.startsWith('tel:') ||
@@ -371,16 +456,10 @@ export class CrawlEngine {
     }
   }
 
-  /**
-   * Extract the root domain from a hostname.
-   * e.g., 'blog.example.com' → 'example.com'
-   * e.g., 'example.co.uk' → 'example.co.uk'
-   */
   private extractRootDomain(hostname: string): string {
     const parts = hostname.split('.')
     if (parts.length <= 2) return hostname
 
-    // Handle common two-part TLDs
     const twoPartTlds = ['co.uk', 'com.au', 'co.nz', 'co.za', 'com.br', 'co.in', 'org.uk', 'net.au']
     const lastTwo = parts.slice(-2).join('.')
     if (twoPartTlds.includes(lastTwo)) {
@@ -393,9 +472,7 @@ export class CrawlEngine {
   private normalizeUrl(url: string): string {
     try {
       const parsed = new URL(url)
-      // Remove fragment
       parsed.hash = ''
-      // Remove trailing slash for consistency
       let normalized = parsed.href
       if (normalized.endsWith('/') && parsed.pathname !== '/') {
         normalized = normalized.slice(0, -1)
@@ -422,6 +499,7 @@ export class CrawlEngine {
 
   private reset(): void {
     this.visited.clear()
+    this.checkedLinks.clear()
     this.urlQueue = []
     this.pages = []
     this.allLinks = []
@@ -434,8 +512,7 @@ export class CrawlEngine {
     this.redirectCount = 0
     this.seoIssuesCount = 0
     this.robotsParser.clear()
-    if (this.queue) {
-      this.queue.clear()
-    }
+    if (this.queue) this.queue.clear()
+    if (this.linkCheckQueue) this.linkCheckQueue.clear()
   }
 }
