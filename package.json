@@ -2,6 +2,8 @@
   "name": "trawlr",
   "private": true,
   "version": "1.0.0",
+  "description": "Open-source desktop web crawler and link auditor. Find broken links, track redirects, and audit SEO meta tags.",
+  "author": "Patrick Hogg",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -33,7 +35,8 @@
     "appId": "com.trawlr.app",
     "productName": "Trawlr",
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
@@ -45,7 +48,7 @@
         "dmg",
         "zip"
       ],
-      "icon": "public/electron-vite.svg",
+      "icon": "build/icon.png",
       "artifactName": "Trawlr-${version}-mac-${arch}.${ext}"
     },
     "win": {
@@ -53,14 +56,12 @@
         "nsis",
         "portable"
       ],
-      "icon": "public/electron-vite.svg",
+      "icon": "build/icon.png",
       "artifactName": "Trawlr-${version}-win-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "public/electron-vite.svg",
-      "uninstallerIcon": "public/electron-vite.svg"
+      "allowToChangeInstallationDirectory": true
     },
     "linux": {
       "target": [
@@ -68,6 +69,7 @@
         "deb"
       ],
       "category": "Development",
+      "icon": "build/icon.png",
       "artifactName": "Trawlr-${version}-linux-${arch}.${ext}"
     }
   }
