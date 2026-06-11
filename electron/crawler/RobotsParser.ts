@@ -54,15 +54,19 @@ export class RobotsParser {
       if (!rules) return true // No rules fetched — allow
 
       const path = parsedUrl.pathname + parsedUrl.search
+      // Also check with trailing slash for paths like /admin vs /admin/
+      const pathWithSlash = path.endsWith('/') ? path : path + '/'
 
       // Check allow rules first (more specific takes precedence)
       for (const rule of rules.allowRules) {
-        if (this.matchesRule(path, rule)) return true
+        if (this.matchesRule(path, rule) || this.matchesRule(pathWithSlash, rule)) return true
       }
 
       // Check disallow rules
       for (const rule of rules.disallowRules) {
-        if (this.matchesRule(path, rule)) return false
+        if (this.matchesRule(path, rule) || this.matchesRule(pathWithSlash, rule)) {
+          return false
+        }
       }
 
       return true
@@ -76,16 +80,23 @@ export class RobotsParser {
    * Focuses on * (wildcard) user-agent rules.
    */
   private parse(content: string): RobotsRules {
-    const lines = content.split('\n')
+    const lines = content.split(/\r?\n/)
     const allowRules: string[] = []
     const disallowRules: string[] = []
     let isRelevantBlock = false
+    let lastDirectiveWasAgent = false
 
     for (const rawLine of lines) {
       const line = rawLine.trim()
 
       // Skip comments and empty lines
-      if (line.startsWith('#') || line.length === 0) continue
+      if (line.startsWith('#') || line.length === 0) {
+        // Empty line between blocks resets block tracking
+        if (line.length === 0 && !lastDirectiveWasAgent) {
+          // Don't reset isRelevantBlock on empty lines within a user-agent group
+        }
+        continue
+      }
 
       const colonIdx = line.indexOf(':')
       if (colonIdx === -1) continue
@@ -94,12 +105,25 @@ export class RobotsParser {
       const value = line.substring(colonIdx + 1).trim()
 
       if (directive === 'user-agent') {
-        isRelevantBlock = value === '*'
-      } else if (isRelevantBlock) {
-        if (directive === 'disallow' && value.length > 0) {
-          disallowRules.push(value)
-        } else if (directive === 'allow' && value.length > 0) {
-          allowRules.push(value)
+        // If the previous directive was also a user-agent, this is a multi-agent block
+        if (!lastDirectiveWasAgent) {
+          // New block — reset relevance
+          isRelevantBlock = value === '*'
+        } else {
+          // Additional agent in same block — add relevance if it matches
+          if (value === '*') {
+            isRelevantBlock = true
+          }
+        }
+        lastDirectiveWasAgent = true
+      } else {
+        lastDirectiveWasAgent = false
+        if (isRelevantBlock) {
+          if (directive === 'disallow' && value.length > 0) {
+            disallowRules.push(value)
+          } else if (directive === 'allow' && value.length > 0) {
+            allowRules.push(value)
+          }
         }
       }
     }

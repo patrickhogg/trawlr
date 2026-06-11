@@ -51108,11 +51108,15 @@ class RobotsParser {
       const rules = this.rulesCache.get(origin);
       if (!rules) return true;
       const path2 = parsedUrl.pathname + parsedUrl.search;
+      const pathWithSlash = path2.endsWith("/") ? path2 : path2 + "/";
       for (const rule of rules.allowRules) {
-        if (this.matchesRule(path2, rule)) return true;
+        if (this.matchesRule(path2, rule) || this.matchesRule(pathWithSlash, rule)) return true;
       }
       for (const rule of rules.disallowRules) {
-        if (this.matchesRule(path2, rule)) return false;
+        if (this.matchesRule(path2, rule) || this.matchesRule(pathWithSlash, rule)) {
+          console.log(`[RobotsParser] BLOCKED: ${path2} matched disallow rule: ${rule}`);
+          return false;
+        }
       }
       return true;
     } catch {
@@ -51124,27 +51128,42 @@ class RobotsParser {
    * Focuses on * (wildcard) user-agent rules.
    */
   parse(content) {
-    const lines = content.split("\n");
+    const lines = content.split(/\r?\n/);
     const allowRules = [];
     const disallowRules = [];
     let isRelevantBlock = false;
+    let lastDirectiveWasAgent = false;
     for (const rawLine of lines) {
       const line = rawLine.trim();
-      if (line.startsWith("#") || line.length === 0) continue;
+      if (line.startsWith("#") || line.length === 0) {
+        if (line.length === 0 && !lastDirectiveWasAgent) ;
+        continue;
+      }
       const colonIdx = line.indexOf(":");
       if (colonIdx === -1) continue;
       const directive = line.substring(0, colonIdx).trim().toLowerCase();
       const value = line.substring(colonIdx + 1).trim();
       if (directive === "user-agent") {
-        isRelevantBlock = value === "*";
-      } else if (isRelevantBlock) {
-        if (directive === "disallow" && value.length > 0) {
-          disallowRules.push(value);
-        } else if (directive === "allow" && value.length > 0) {
-          allowRules.push(value);
+        if (!lastDirectiveWasAgent) {
+          isRelevantBlock = value === "*";
+        } else {
+          if (value === "*") {
+            isRelevantBlock = true;
+          }
+        }
+        lastDirectiveWasAgent = true;
+      } else {
+        lastDirectiveWasAgent = false;
+        if (isRelevantBlock) {
+          if (directive === "disallow" && value.length > 0) {
+            disallowRules.push(value);
+          } else if (directive === "allow" && value.length > 0) {
+            allowRules.push(value);
+          }
         }
       }
     }
+    console.log("[RobotsParser] Parsed rules for *:", { allowRules, disallowRules });
     return { allowRules, disallowRules };
   }
   /**
