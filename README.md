@@ -87,13 +87,47 @@ npm install
 npm run dev
 ```
 
-### Build for Production
+### Build Installers
+
+Build a distributable installer for your platform. Output goes to the `release/` directory.
+
+#### macOS
+
+```bash
+npm run build:mac
+```
+
+Produces:
+- `Trawlr-1.0.0-mac-arm64.dmg` — drag-to-Applications installer
+- `Trawlr-1.0.0-mac-arm64.zip` — portable zip
+
+#### Windows
+
+```bash
+npm run build:win
+```
+
+Produces:
+- `Trawlr-1.0.0-win-x64.exe` — NSIS installer (custom install directory)
+- `Trawlr-1.0.0-win-x64.exe` — portable executable
+
+#### Linux
+
+```bash
+npm run build:linux
+```
+
+Produces:
+- `Trawlr-1.0.0-linux-x86_64.AppImage` — portable AppImage
+- `Trawlr-1.0.0-linux-amd64.deb` — Debian package
+
+#### All Platforms
 
 ```bash
 npm run build
 ```
 
-This will compile the app and package it using `electron-builder`.
+> **Note**: Cross-compilation has limitations. Building Windows installers on macOS requires [Wine](https://www.winehq.org/). For best results, build on the target platform or use CI/CD.
 
 ---
 
