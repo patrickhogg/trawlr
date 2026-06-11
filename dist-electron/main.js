@@ -51758,6 +51758,7 @@ const MAIN_DIST = path.join(process.env.APP_ROOT, "dist-electron");
 const RENDERER_DIST = path.join(process.env.APP_ROOT, "dist");
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, "public") : RENDERER_DIST;
 let win;
+let handlersRegistered = false;
 function createWindow() {
   win = new BrowserWindow({
     width: 1400,
@@ -51773,7 +51774,10 @@ function createWindow() {
       nodeIntegration: false
     }
   });
-  registerCrawlHandlers(win);
+  if (!handlersRegistered) {
+    registerCrawlHandlers(win);
+    handlersRegistered = true;
+  }
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL);
   } else {
