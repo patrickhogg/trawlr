@@ -77,7 +77,7 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/trawlr.git
+git clone https://github.com/patrickhogg/trawlr.git
 cd trawlr
 
 # Install dependencies
@@ -198,19 +198,6 @@ Contributions are welcome! Here's how to get started:
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
----
-
-## 📋 Roadmap
-
-- [ ] JavaScript rendering support (Puppeteer/Playwright)
-- [ ] Crawl history and session persistence
-- [ ] Image/asset broken link detection
-- [ ] Page speed / Core Web Vitals auditing
-- [ ] Custom crawl rules (include/exclude URL patterns)
-- [ ] JSON export format
-- [ ] Sitemap.xml generation from crawl results
-- [ ] Batch crawling (multiple sites)
 
 ---
 
