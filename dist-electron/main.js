@@ -51114,7 +51114,6 @@ class RobotsParser {
       }
       for (const rule of rules.disallowRules) {
         if (this.matchesRule(path2, rule) || this.matchesRule(pathWithSlash, rule)) {
-          console.log(`[RobotsParser] BLOCKED: ${path2} matched disallow rule: ${rule}`);
           return false;
         }
       }
@@ -51163,7 +51162,6 @@ class RobotsParser {
         }
       }
     }
-    console.log("[RobotsParser] Parsed rules for *:", { allowRules, disallowRules });
     return { allowRules, disallowRules };
   }
   /**
