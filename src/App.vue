@@ -115,9 +115,22 @@ async function handleStartCrawl(seedUrl: string) {
   try {
     const response = await window.spider.startCrawl({ ...settings })
     if (response.success && response.results) {
-      pages.value = response.results.pages
-      allLinks.value = response.results.allLinks
+      // Sync final progress (status → 'completed', final counts)
       Object.assign(progress, response.results.progress)
+
+      // Reconcile any pages/links that the streaming events may have missed
+      // (e.g. if the crawl finished before all onPage events were delivered)
+      const streamedUrls = new Set(pages.value.map((p) => p.url))
+      for (const page of response.results.pages) {
+        if (!streamedUrls.has(page.url)) {
+          pages.value.push(page)
+        }
+      }
+
+      // Replace allLinks with the final data which includes resolved external
+      // link statuses (external links are checked asynchronously after page crawl
+      // and only the final results contain their resolved statusCode/redirectChain)
+      allLinks.value = response.results.allLinks
     }
   } catch (err: any) {
     console.error('Crawl error:', err)

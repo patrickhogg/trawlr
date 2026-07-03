@@ -18,19 +18,21 @@ import { HttpClient } from '../crawler/HttpClient'
 let engine: CrawlEngine | null = null
 let latestResults: CrawlResults | null = null
 
-export function registerCrawlHandlers(win: BrowserWindow): void {
+export function registerCrawlHandlers(getWin: () => BrowserWindow | null): void {
   // Start a crawl
   ipcMain.handle('crawl:start', async (_event, settings: CrawlSettings) => {
     engine = new CrawlEngine()
 
     const onProgress = (progress: CrawlProgress) => {
-      if (!win.isDestroyed()) {
+      const win = getWin()
+      if (win && !win.isDestroyed()) {
         win.webContents.send('crawl:progress', progress)
       }
     }
 
     const onPage = (page: CrawledPage) => {
-      if (!win.isDestroyed()) {
+      const win = getWin()
+      if (win && !win.isDestroyed()) {
         win.webContents.send('crawl:page', page)
       }
     }
@@ -102,10 +104,14 @@ export function registerCrawlHandlers(win: BrowserWindow): void {
     }
 
     try {
-      const { canceled, filePath } = await dialog.showSaveDialog(win, {
+      const win = getWin()
+      const dialogOptions = {
         defaultPath: defaultFilename,
         filters: [{ name: 'CSV Files', extensions: ['csv'] }],
-      })
+      }
+      const { canceled, filePath } = win && !win.isDestroyed()
+        ? await dialog.showSaveDialog(win, dialogOptions)
+        : await dialog.showSaveDialog(dialogOptions)
 
       if (canceled || !filePath) {
         return { success: false, error: 'Export cancelled' }

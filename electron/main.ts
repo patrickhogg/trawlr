@@ -46,7 +46,7 @@ function createWindow() {
 
   // Register IPC handlers only once (survives window close/reopen on macOS)
   if (!handlersRegistered) {
-    registerCrawlHandlers(win)
+    registerCrawlHandlers(() => win)
     handlersRegistered = true
   }
 
