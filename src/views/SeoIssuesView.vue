@@ -1,17 +1,58 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import type { CrawledPage } from '../types'
+import { useDataTable, type FacetDef } from '../composables/useDataTable'
+import TableToolbar from '../components/TableToolbar.vue'
+import UrlCell from '../components/UrlCell.vue'
 
 const props = defineProps<{
   pages: CrawledPage[]
 }>()
 
-const filterText = ref('')
+const facets: Array<FacetDef<CrawledPage>> = [
+  {
+    key: 'titleStatus',
+    label: 'Title',
+    options: [
+      { value: 'pass', label: 'Pass', tone: 'pass' },
+      { value: 'warning', label: 'Warning', tone: 'warning' },
+      { value: 'missing', label: 'Missing', tone: 'missing' },
+    ],
+    accessor: (p) => p.seo?.title.status,
+  },
+  {
+    key: 'descStatus',
+    label: 'Description',
+    options: [
+      { value: 'pass', label: 'Pass', tone: 'pass' },
+      { value: 'warning', label: 'Warning', tone: 'warning' },
+      { value: 'missing', label: 'Missing', tone: 'missing' },
+    ],
+    accessor: (p) => p.seo?.metaDescription.status,
+  },
+  {
+    key: 'kwStatus',
+    label: 'Keywords',
+    options: [
+      { value: 'pass', label: 'Pass', tone: 'pass' },
+      { value: 'missing', label: 'Missing', tone: 'missing' },
+    ],
+    accessor: (p) => p.seo?.metaKeywords.status,
+  },
+]
 
-const filteredPages = computed(() => {
-  if (!filterText.value) return props.pages
-  const q = filterText.value.toLowerCase()
-  return props.pages.filter((p) => p.url.toLowerCase().includes(q))
+const table = useDataTable<CrawledPage>({
+  rows: () => props.pages,
+  searchAccessors: (p) => [p.url, p.seo?.title.value, p.seo?.metaDescription.value],
+  sortAccessors: {
+    url: (p) => p.url,
+    title: (p) => p.seo?.title.value ?? '',
+    titleStatus: (p) => p.seo?.title.status ?? '',
+    descStatus: (p) => p.seo?.metaDescription.status ?? '',
+    kwStatus: (p) => p.seo?.metaKeywords.status ?? '',
+  },
+  facets,
+  defaultSort: { key: 'url', dir: 'asc' },
+  storageKey: 'trawlr.seo-issues',
 })
 
 function seoBadgeClass(status: string): string {
@@ -35,18 +76,17 @@ function seoIcon(status: string): string {
 
 <template>
   <div class="view-container animate-fade-in">
-    <div class="view-header">
-      <input
-        id="filter-seo-issues"
-        v-model="filterText"
-        class="input input-sm filter-input"
-        placeholder="Filter pages with SEO issues..."
-      />
-      <span class="result-count">{{ filteredPages.length }} pages with issues</span>
-    </div>
+    <TableToolbar
+      :table="table"
+      :facets="facets"
+      input-id="filter-seo-issues"
+      search-placeholder="Filter pages with SEO issues..."
+      count-noun="pages with issues"
+      count-tone="warning"
+    />
 
     <div v-if="pages.length === 0" class="empty-state">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon success">
         <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
         <path d="M9 12l2 2 4-4" />
       </svg>
@@ -54,21 +94,26 @@ function seoIcon(status: string): string {
       <p class="empty-subtitle">SEO issues will appear here after a crawl</p>
     </div>
 
+    <div v-else-if="table.rows.value.length === 0" class="empty-state">
+      <p class="empty-title">No pages match your filters</p>
+      <p class="empty-subtitle">Try clearing or adjusting the filters above</p>
+    </div>
+
     <div v-else class="table-wrapper">
       <table class="data-table">
         <thead>
           <tr>
-            <th>URL</th>
-            <th>Title</th>
-            <th>Title Status</th>
+            <th class="sortable" :aria-sort="table.ariaSort('url')" @click="table.toggleSort('url')">URL{{ table.sortIndicator('url') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('title')" @click="table.toggleSort('title')">Title{{ table.sortIndicator('title') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('titleStatus')" @click="table.toggleSort('titleStatus')">Title Status{{ table.sortIndicator('titleStatus') }}</th>
             <th>Meta Description</th>
-            <th>Description Status</th>
-            <th>Keywords Status</th>
+            <th class="sortable" :aria-sort="table.ariaSort('descStatus')" @click="table.toggleSort('descStatus')">Description Status{{ table.sortIndicator('descStatus') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('kwStatus')" @click="table.toggleSort('kwStatus')">Keywords Status{{ table.sortIndicator('kwStatus') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="page in filteredPages" :key="page.url">
-            <td class="url-cell" :title="page.url">{{ page.url }}</td>
+          <tr v-for="page in table.rows.value" :key="page.url">
+            <UrlCell :url="page.url" />
             <td class="content-cell" :title="page.seo?.title.value || ''">
               {{ page.seo?.title.value || '—' }}
             </td>
@@ -112,36 +157,6 @@ function seoIcon(status: string): string {
 </template>
 
 <style scoped>
-.view-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.view-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.filter-input {
-  max-width: 350px;
-}
-
-.result-count {
-  color: var(--color-warning);
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-
-.table-wrapper {
-  flex: 1;
-  overflow: auto;
-}
-
 .content-cell {
   max-width: 250px;
   overflow: hidden;
@@ -155,31 +170,5 @@ function seoIcon(status: string): string {
   opacity: 0.7;
   font-size: 0.65rem;
   margin-left: 2px;
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 60px 20px;
-}
-
-.empty-icon {
-  color: var(--color-success);
-  opacity: 0.5;
-}
-
-.empty-title {
-  color: var(--color-text-secondary);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.empty-subtitle {
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
 }
 </style>

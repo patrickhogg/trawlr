@@ -1,44 +1,63 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import type { DiscoveredLink } from '../types'
+import { useDataTable, type FacetDef } from '../composables/useDataTable'
+import TableToolbar from '../components/TableToolbar.vue'
+import UrlCell from '../components/UrlCell.vue'
 
 const props = defineProps<{
   links: DiscoveredLink[]
 }>()
 
-const filterText = ref('')
+const facets: Array<FacetDef<DiscoveredLink>> = [
+  {
+    key: 'type',
+    label: 'Type',
+    options: [
+      { value: 'internal', label: 'Internal', tone: 'internal' },
+      { value: 'external', label: 'External', tone: 'external' },
+    ],
+    accessor: (l) => l.type,
+  },
+  {
+    key: 'finalStatus',
+    label: 'Final Status',
+    options: [
+      { value: 'ok', label: '2xx OK', tone: 'pass' },
+      { value: 'other', label: 'Non-2xx', tone: 'warning' },
+    ],
+    accessor: (l) => (l.statusCode >= 200 && l.statusCode < 300 ? 'ok' : 'other'),
+  },
+]
 
-const filteredLinks = computed(() => {
-  if (!filterText.value) return props.links
-  const q = filterText.value.toLowerCase()
-  return props.links.filter(
-    (l) =>
-      l.targetUrl.toLowerCase().includes(q) ||
-      l.sourceUrl.toLowerCase().includes(q)
-  )
+const table = useDataTable<DiscoveredLink>({
+  rows: () => props.links,
+  searchAccessors: (l) => [l.targetUrl, l.sourceUrl],
+  sortAccessors: {
+    target: (l) => l.targetUrl,
+    type: (l) => l.type,
+    status: (l) => l.statusCode,
+    hops: (l) => l.redirectChain.length,
+    source: (l) => l.sourceUrl,
+  },
+  facets,
+  defaultSort: { key: 'target', dir: 'asc' },
+  storageKey: 'trawlr.redirects',
 })
-
-function formatRedirectChain(link: DiscoveredLink): string {
-  return link.redirectChain
-    .map((hop) => `${hop.statusCode} → ${hop.url}`)
-    .join('\n')
-}
 </script>
 
 <template>
   <div class="view-container animate-fade-in">
-    <div class="view-header">
-      <input
-        id="filter-redirects"
-        v-model="filterText"
-        class="input input-sm filter-input"
-        placeholder="Filter redirects..."
-      />
-      <span class="result-count">{{ filteredLinks.length }} redirects</span>
-    </div>
+    <TableToolbar
+      :table="table"
+      :facets="facets"
+      input-id="filter-redirects"
+      search-placeholder="Filter redirects..."
+      count-noun="redirects"
+      count-tone="warning"
+    />
 
     <div v-if="links.length === 0" class="empty-state">
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon warning">
         <polyline points="15 14 20 9 15 4" />
         <path d="M4 20v-7a4 4 0 0 1 4-4h12" />
       </svg>
@@ -46,20 +65,25 @@ function formatRedirectChain(link: DiscoveredLink): string {
       <p class="empty-subtitle">Redirects will appear here after a crawl</p>
     </div>
 
+    <div v-else-if="table.rows.value.length === 0" class="empty-state">
+      <p class="empty-title">No redirects match your filters</p>
+      <p class="empty-subtitle">Try clearing or adjusting the filters above</p>
+    </div>
+
     <div v-else class="table-wrapper">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Original URL</th>
-            <th>Type</th>
-            <th>Redirect Chain</th>
-            <th>Final Status</th>
-            <th>Found On</th>
+            <th class="sortable" :aria-sort="table.ariaSort('target')" @click="table.toggleSort('target')">Original URL{{ table.sortIndicator('target') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('type')" @click="table.toggleSort('type')">Type{{ table.sortIndicator('type') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('hops')" @click="table.toggleSort('hops')">Redirect Chain{{ table.sortIndicator('hops') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('status')" @click="table.toggleSort('status')">Final Status{{ table.sortIndicator('status') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('source')" @click="table.toggleSort('source')">Found On{{ table.sortIndicator('source') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(link, i) in filteredLinks" :key="i">
-            <td class="url-cell" :title="link.targetUrl">{{ link.targetUrl }}</td>
+          <tr v-for="(link, i) in table.rows.value" :key="i">
+            <UrlCell :url="link.targetUrl" />
             <td>
               <span :class="link.type === 'internal' ? 'badge badge-internal' : 'badge badge-external'">
                 {{ link.type }}
@@ -81,7 +105,7 @@ function formatRedirectChain(link: DiscoveredLink): string {
                 {{ link.statusCode }}
               </span>
             </td>
-            <td class="url-cell" :title="link.sourceUrl">{{ link.sourceUrl }}</td>
+            <UrlCell :url="link.sourceUrl" />
           </tr>
         </tbody>
       </table>
@@ -90,36 +114,6 @@ function formatRedirectChain(link: DiscoveredLink): string {
 </template>
 
 <style scoped>
-.view-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.view-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.filter-input {
-  max-width: 350px;
-}
-
-.result-count {
-  color: var(--color-warning);
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-
-.table-wrapper {
-  flex: 1;
-  overflow: auto;
-}
-
 .chain-cell {
   max-width: 500px;
 }
@@ -149,31 +143,5 @@ function formatRedirectChain(link: DiscoveredLink): string {
 .chain-arrow {
   color: var(--color-text-muted);
   flex-shrink: 0;
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 60px 20px;
-}
-
-.empty-icon {
-  color: var(--color-warning);
-  opacity: 0.5;
-}
-
-.empty-title {
-  color: var(--color-text-secondary);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.empty-subtitle {
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
 }
 </style>

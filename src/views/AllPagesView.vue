@@ -1,56 +1,80 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import type { CrawledPage } from '../types'
+import { useDataTable, type FacetDef } from '../composables/useDataTable'
+import TableToolbar from '../components/TableToolbar.vue'
+import UrlCell from '../components/UrlCell.vue'
 
 const props = defineProps<{
   pages: CrawledPage[]
 }>()
 
-const sortKey = ref<string>('url')
-const sortDir = ref<'asc' | 'desc'>('asc')
-const filterText = ref('')
+function statusBucket(code: number): string {
+  if (code >= 200 && code < 300) return '2xx'
+  if (code >= 300 && code < 400) return '3xx'
+  if (code >= 400 && code < 500) return '4xx'
+  if (code >= 500) return '5xx'
+  return 'other'
+}
 
-const filteredPages = computed(() => {
-  let result = props.pages
-  if (filterText.value) {
-    const q = filterText.value.toLowerCase()
-    result = result.filter(
-      (p) =>
-        p.url.toLowerCase().includes(q) ||
-        (p.seo?.title.value || '').toLowerCase().includes(q)
-    )
-  }
-  return result.slice().sort((a, b) => {
-    let aVal: any, bVal: any
-    switch (sortKey.value) {
-      case 'url': aVal = a.url; bVal = b.url; break
-      case 'status': aVal = a.statusCode; bVal = b.statusCode; break
-      case 'title': aVal = a.seo?.title.value || ''; bVal = b.seo?.title.value || ''; break
-      case 'titleStatus': aVal = a.seo?.title.status || ''; bVal = b.seo?.title.status || ''; break
-      case 'descStatus': aVal = a.seo?.metaDescription.status || ''; bVal = b.seo?.metaDescription.status || ''; break
-      case 'kwStatus': aVal = a.seo?.metaKeywords.status || ''; bVal = b.seo?.metaKeywords.status || ''; break
-      case 'links': aVal = a.links.length; bVal = b.links.length; break
-      default: aVal = a.url; bVal = b.url
-    }
-    if (aVal < bVal) return sortDir.value === 'asc' ? -1 : 1
-    if (aVal > bVal) return sortDir.value === 'asc' ? 1 : -1
-    return 0
-  })
+const facets: Array<FacetDef<CrawledPage>> = [
+  {
+    key: 'statusBucket',
+    label: 'Status',
+    options: [
+      { value: '2xx', label: '2xx', tone: 'pass' },
+      { value: '3xx', label: '3xx', tone: 'redirect' },
+      { value: '4xx', label: '4xx', tone: 'missing' },
+      { value: '5xx', label: '5xx', tone: 'missing' },
+    ],
+    accessor: (p) => statusBucket(p.statusCode),
+  },
+  {
+    key: 'titleStatus',
+    label: 'Title',
+    options: [
+      { value: 'pass', label: 'Pass', tone: 'pass' },
+      { value: 'warning', label: 'Warning', tone: 'warning' },
+      { value: 'missing', label: 'Missing', tone: 'missing' },
+    ],
+    accessor: (p) => p.seo?.title.status,
+  },
+  {
+    key: 'descStatus',
+    label: 'Description',
+    options: [
+      { value: 'pass', label: 'Pass', tone: 'pass' },
+      { value: 'warning', label: 'Warning', tone: 'warning' },
+      { value: 'missing', label: 'Missing', tone: 'missing' },
+    ],
+    accessor: (p) => p.seo?.metaDescription.status,
+  },
+  {
+    key: 'kwStatus',
+    label: 'Keywords',
+    options: [
+      { value: 'pass', label: 'Pass', tone: 'pass' },
+      { value: 'missing', label: 'Missing', tone: 'missing' },
+    ],
+    accessor: (p) => p.seo?.metaKeywords.status,
+  },
+]
+
+const table = useDataTable<CrawledPage>({
+  rows: () => props.pages,
+  searchAccessors: (p) => [p.url, p.seo?.title.value],
+  sortAccessors: {
+    url: (p) => p.url,
+    status: (p) => p.statusCode,
+    title: (p) => p.seo?.title.value ?? '',
+    titleStatus: (p) => p.seo?.title.status ?? '',
+    descStatus: (p) => p.seo?.metaDescription.status ?? '',
+    kwStatus: (p) => p.seo?.metaKeywords.status ?? '',
+    links: (p) => p.links.length,
+  },
+  facets,
+  defaultSort: { key: 'url', dir: 'asc' },
+  storageKey: 'trawlr.all-pages',
 })
-
-function toggleSort(key: string) {
-  if (sortKey.value === key) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
-  } else {
-    sortKey.value = key
-    sortDir.value = 'asc'
-  }
-}
-
-function sortIndicator(key: string): string {
-  if (sortKey.value !== key) return ''
-  return sortDir.value === 'asc' ? ' ↑' : ' ↓'
-}
 
 function statusBadgeClass(code: number): string {
   if (code >= 200 && code < 300) return 'badge badge-pass'
@@ -80,15 +104,14 @@ function seoStatusIcon(status: string): string {
 
 <template>
   <div class="view-container animate-fade-in">
-    <div class="view-header">
-      <input
-        id="filter-all-pages"
-        v-model="filterText"
-        class="input input-sm filter-input"
-        placeholder="Filter pages by URL or title..."
-      />
-      <span class="result-count">{{ filteredPages.length }} pages</span>
-    </div>
+    <TableToolbar
+      :table="table"
+      :facets="facets"
+      input-id="filter-all-pages"
+      search-placeholder="Filter pages by URL or title..."
+      count-noun="pages"
+      count-tone="muted"
+    />
 
     <div v-if="pages.length === 0" class="empty-state">
       <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="empty-icon">
@@ -100,22 +123,27 @@ function seoStatusIcon(status: string): string {
       <p class="empty-subtitle">Enter a URL and start a crawl to see results</p>
     </div>
 
+    <div v-else-if="table.rows.value.length === 0" class="empty-state">
+      <p class="empty-title">No pages match your filters</p>
+      <p class="empty-subtitle">Try clearing or adjusting the filters above</p>
+    </div>
+
     <div v-else class="table-wrapper">
       <table class="data-table">
         <thead>
           <tr>
-            <th @click="toggleSort('url')">URL{{ sortIndicator('url') }}</th>
-            <th @click="toggleSort('status')">Status{{ sortIndicator('status') }}</th>
-            <th @click="toggleSort('title')">Title{{ sortIndicator('title') }}</th>
-            <th @click="toggleSort('titleStatus')">Title{{ sortIndicator('titleStatus') }}</th>
-            <th @click="toggleSort('descStatus')">Description{{ sortIndicator('descStatus') }}</th>
-            <th @click="toggleSort('kwStatus')">Keywords{{ sortIndicator('kwStatus') }}</th>
-            <th @click="toggleSort('links')">Links{{ sortIndicator('links') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('url')" @click="table.toggleSort('url')">URL{{ table.sortIndicator('url') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('status')" @click="table.toggleSort('status')">Status{{ table.sortIndicator('status') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('title')" @click="table.toggleSort('title')">Title{{ table.sortIndicator('title') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('titleStatus')" @click="table.toggleSort('titleStatus')">Title{{ table.sortIndicator('titleStatus') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('descStatus')" @click="table.toggleSort('descStatus')">Description{{ table.sortIndicator('descStatus') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('kwStatus')" @click="table.toggleSort('kwStatus')">Keywords{{ table.sortIndicator('kwStatus') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('links')" @click="table.toggleSort('links')">Links{{ table.sortIndicator('links') }}</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="page in filteredPages" :key="page.url">
-            <td class="url-cell" :title="page.url">{{ page.url }}</td>
+          <tr v-for="page in table.rows.value" :key="page.url">
+            <UrlCell :url="page.url" />
             <td>
               <span :class="statusBadgeClass(page.statusCode)">{{ page.statusCode }}</span>
             </td>
@@ -147,64 +175,3 @@ function seoStatusIcon(status: string): string {
     </div>
   </div>
 </template>
-
-<style scoped>
-.view-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.view-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
-.filter-input {
-  max-width: 350px;
-}
-
-.result-count {
-  color: var(--color-text-muted);
-  font-size: 0.8125rem;
-}
-
-.table-wrapper {
-  flex: 1;
-  overflow: auto;
-}
-
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 60px 20px;
-}
-
-.empty-icon {
-  color: var(--color-text-muted);
-  opacity: 0.4;
-}
-
-.empty-title {
-  color: var(--color-text-secondary);
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.empty-subtitle {
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
-}
-
-.text-muted {
-  color: var(--color-text-muted);
-}
-</style>
