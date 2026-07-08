@@ -1,0 +1,47 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Brand gradient: cyan -> indigo, matching the Trawlr wordmark -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="0.55" stop-color="#4f7bf0"/>
+      <stop offset="1" stop-color="#818cf8"/>
+    </linearGradient>
+    <!-- Soft top highlight for gentle depth -->
+    <radialGradient id="sheen" cx="0.32" cy="0.22" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- macOS squircle -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#sheen)"/>
+
+  <!-- Globe glyph, centered at (512, 512) -->
+  <g fill="none" stroke="#ffffff" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <!-- outer sphere -->
+    <circle cx="512" cy="512" r="252"/>
+    <!-- equator -->
+    <line x1="260" y1="512" x2="764" y2="512"/>
+    <!-- meridian -->
+    <ellipse cx="512" cy="512" rx="112" ry="252"/>
+    <!-- latitude arcs -->
+    <path d="M 300 420 Q 512 348 724 420"/>
+    <path d="M 300 604 Q 512 676 724 604"/>
+  </g>
+
+  <!-- Crawl nodes + connecting link path -->
+  <g stroke="#ffffff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+    <path d="M 372 372 L 512 300 L 662 452" fill="none"/>
+  </g>
+  <g fill="#ffffff">
+    <circle cx="372" cy="372" r="30"/>
+    <circle cx="512" cy="300" r="30"/>
+    <circle cx="662" cy="452" r="30"/>
+  </g>
+  <g fill="#4f7bf0">
+    <circle cx="372" cy="372" r="12"/>
+    <circle cx="512" cy="300" r="12"/>
+    <circle cx="662" cy="452" r="12"/>
+  </g>
+</svg>
