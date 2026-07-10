@@ -15,6 +15,7 @@ const concurrency = ref(props.settings.concurrency)
 const maxPages = ref(props.settings.maxPages)
 const rateLimitMs = ref(props.settings.rateLimitMs)
 const checkExternalLinks = ref(props.settings.checkExternalLinks)
+const useSitemap = ref(props.settings.useSitemap !== false)
 const titleMinLength = ref(props.settings.titleMinLength)
 const titleMaxLength = ref(props.settings.titleMaxLength)
 const descriptionMinLength = ref(props.settings.descriptionMinLength)
@@ -32,6 +33,7 @@ watch(() => props.settings, (s) => {
   maxPages.value = s.maxPages
   rateLimitMs.value = s.rateLimitMs
   checkExternalLinks.value = s.checkExternalLinks
+  useSitemap.value = s.useSitemap !== false
   titleMinLength.value = s.titleMinLength
   titleMaxLength.value = s.titleMaxLength
   descriptionMinLength.value = s.descriptionMinLength
@@ -59,6 +61,10 @@ function updateRateLimit() {
 
 function toggleCheckExternalLinks() {
   emit('update', { checkExternalLinks: checkExternalLinks.value })
+}
+
+function toggleUseSitemap() {
+  emit('update', { useSitemap: useSitemap.value })
 }
 
 function updateSeoLimits() {
@@ -174,6 +180,30 @@ function resetUserAgent() {
             />
             <span class="toggle-slider" />
             <span class="toggle-label">{{ checkExternalLinks ? 'On' : 'Off' }}</span>
+          </label>
+        </div>
+
+        <!-- Use Sitemap -->
+        <div class="setting-group">
+          <label class="setting-label" for="setting-use-sitemap">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
+              <rect x="14" y="14" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" />
+            </svg>
+            Discover &amp; Use Sitemap
+          </label>
+          <p class="setting-description">Fetch the site's XML sitemap to seed the crawl (finds unlinked pages) and enable orphan-page analysis.</p>
+          <label class="toggle-wrapper">
+            <input
+              id="setting-use-sitemap"
+              v-model="useSitemap"
+              type="checkbox"
+              class="toggle-input"
+              :disabled="isCrawling"
+              @change="toggleUseSitemap"
+            />
+            <span class="toggle-slider" />
+            <span class="toggle-label">{{ useSitemap ? 'On' : 'Off' }}</span>
           </label>
         </div>
 

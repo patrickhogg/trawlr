@@ -4,8 +4,8 @@ import type {
   CrawlSettings,
   CrawlProgress,
   CrawledPage,
-  CrawlResults,
   DiscoveredLink,
+  SavedCrawlMeta,
 } from './types'
 import CrawlControls from './components/CrawlControls.vue'
 import ProgressBar from './components/ProgressBar.vue'
@@ -13,13 +13,26 @@ import AllPagesView from './views/AllPagesView.vue'
 import BrokenLinksView from './views/BrokenLinksView.vue'
 import RedirectsView from './views/RedirectsView.vue'
 import SeoIssuesView from './views/SeoIssuesView.vue'
+import SitemapView from './views/SitemapView.vue'
+import HistoryView from './views/HistoryView.vue'
 import SettingsView from './views/SettingsView.vue'
+import {
+  pageHasSeoIssue,
+  computeDuplicates,
+  computeInlinkCounts,
+  computeSitemapCoverage,
+  isDuplicateTitle,
+  isDuplicateDescription,
+} from './lib/analysis'
 
 // ---- State ----
 const activeTab = ref('all-pages')
 const isCrawling = ref(false)
 const pages = ref<CrawledPage[]>([])
 const allLinks = ref<DiscoveredLink[]>([])
+const sitemapUrls = ref<string[]>([])
+const savedCrawls = ref<SavedCrawlMeta[]>([])
+const lastSeedUrl = ref<string | null>(null)
 const progress = reactive<CrawlProgress>({
   status: 'idle',
   pagesDiscovered: 0,
@@ -42,18 +55,26 @@ const settings = reactive<CrawlSettings>({
   descriptionMinLength: 120,
   descriptionMaxLength: 160,
   userAgent: '',
+  useSitemap: true,
 })
 
 // ---- Computed ----
 const brokenLinks = computed(() => allLinks.value.filter((l) => l.isBroken))
 const redirectLinks = computed(() => allLinks.value.filter((l) => l.redirectChain.length > 0))
+
+// Cross-page SEO analysis
+const duplicates = computed(() => computeDuplicates(pages.value))
+const inlinkCounts = computed(() => computeInlinkCounts(allLinks.value))
+const sitemapCoverage = computed(() =>
+  computeSitemapCoverage(pages.value, allLinks.value, sitemapUrls.value, lastSeedUrl.value)
+)
+
 const seoIssuePages = computed(() =>
   pages.value.filter(
     (p) =>
-      p.seo &&
-      (p.seo.title.status !== 'pass' ||
-        p.seo.metaDescription.status !== 'pass' ||
-        p.seo.metaKeywords.status !== 'pass')
+      pageHasSeoIssue(p) ||
+      isDuplicateTitle(p, duplicates.value) ||
+      isDuplicateDescription(p, duplicates.value)
   )
 )
 
@@ -62,6 +83,8 @@ const tabs = computed(() => [
   { id: 'broken-links', label: 'Broken Links', count: brokenLinks.value.length },
   { id: 'redirects', label: 'Redirects', count: redirectLinks.value.length },
   { id: 'seo-issues', label: 'SEO Issues', count: seoIssuePages.value.length },
+  { id: 'sitemap', label: 'Sitemap', count: sitemapCoverage.value.orphans.length || null },
+  { id: 'history', label: 'History', count: savedCrawls.value.length || null },
   { id: 'settings', label: 'Settings', count: null },
 ])
 
@@ -75,6 +98,9 @@ onMounted(async () => {
   if (!settings.userAgent) {
     settings.userAgent = defaultUA
   }
+
+  // Load saved crawl history
+  await refreshHistory()
 
   // Subscribe to real-time events
   unsubProgress = window.spider.onProgress((p) => {
@@ -98,6 +124,8 @@ async function handleStartCrawl(seedUrl: string) {
   // Reset state
   pages.value = []
   allLinks.value = []
+  sitemapUrls.value = []
+  lastSeedUrl.value = seedUrl
   Object.assign(progress, {
     status: 'crawling',
     pagesDiscovered: 0,
@@ -131,12 +159,40 @@ async function handleStartCrawl(seedUrl: string) {
       // link statuses (external links are checked asynchronously after page crawl
       // and only the final results contain their resolved statusCode/redirectChain)
       allLinks.value = response.results.allLinks
+      sitemapUrls.value = response.results.sitemapUrls || []
+
+      // A completed crawl is auto-saved in the main process — refresh the list.
+      await refreshHistory()
     }
   } catch (err: any) {
     console.error('Crawl error:', err)
   } finally {
     isCrawling.value = false
   }
+}
+
+async function refreshHistory() {
+  try {
+    savedCrawls.value = await window.spider.listCrawls()
+  } catch {
+    savedCrawls.value = []
+  }
+}
+
+async function handleLoadCrawl(id: string) {
+  const saved = await window.spider.loadCrawl(id)
+  if (!saved) return
+  pages.value = saved.results.pages
+  allLinks.value = saved.results.allLinks
+  sitemapUrls.value = saved.results.sitemapUrls || []
+  lastSeedUrl.value = saved.meta.seedUrl
+  Object.assign(progress, saved.results.progress)
+  activeTab.value = 'all-pages'
+}
+
+async function handleDeleteCrawl(id: string) {
+  await window.spider.deleteCrawl(id)
+  await refreshHistory()
 }
 
 async function handleCancelCrawl() {
@@ -221,10 +277,20 @@ function handleSettingsUpdate(newSettings: Partial<CrawlSettings>) {
 
     <!-- Tab Content -->
     <main class="tab-content">
-      <AllPagesView v-if="activeTab === 'all-pages'" :pages="pages" />
+      <AllPagesView v-if="activeTab === 'all-pages'" :pages="pages" :inlinks="inlinkCounts" />
       <BrokenLinksView v-if="activeTab === 'broken-links'" :links="brokenLinks" />
       <RedirectsView v-if="activeTab === 'redirects'" :links="redirectLinks" />
-      <SeoIssuesView v-if="activeTab === 'seo-issues'" :pages="seoIssuePages" />
+      <SeoIssuesView v-if="activeTab === 'seo-issues'" :pages="seoIssuePages" :duplicates="duplicates" />
+      <SitemapView v-if="activeTab === 'sitemap'" :coverage="sitemapCoverage" :has-crawled="pages.length > 0" />
+      <HistoryView
+        v-if="activeTab === 'history'"
+        :crawls="savedCrawls"
+        :current-pages="pages"
+        :current-links="allLinks"
+        :has-current="pages.length > 0"
+        @load="handleLoadCrawl"
+        @delete="handleDeleteCrawl"
+      />
       <SettingsView
         v-if="activeTab === 'settings'"
         :settings="settings"

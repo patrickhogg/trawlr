@@ -6,6 +6,7 @@
 export interface RobotsRules {
   allowRules: string[]
   disallowRules: string[]
+  sitemaps: string[]
 }
 
 export class RobotsParser {
@@ -29,7 +30,7 @@ export class RobotsParser {
 
       if (!response.ok) {
         // No robots.txt or error — allow everything
-        this.rulesCache.set(origin, { allowRules: [], disallowRules: [] })
+        this.rulesCache.set(origin, { allowRules: [], disallowRules: [], sitemaps: [] })
         return
       }
 
@@ -38,7 +39,7 @@ export class RobotsParser {
       this.rulesCache.set(origin, rules)
     } catch {
       // Network error — allow everything
-      this.rulesCache.set(origin, { allowRules: [], disallowRules: [] })
+      this.rulesCache.set(origin, { allowRules: [], disallowRules: [], sitemaps: [] })
     }
   }
 
@@ -83,6 +84,7 @@ export class RobotsParser {
     const lines = content.split(/\r?\n/)
     const allowRules: string[] = []
     const disallowRules: string[] = []
+    const sitemaps: string[] = []
     let isRelevantBlock = false
     let lastDirectiveWasAgent = false
 
@@ -103,6 +105,13 @@ export class RobotsParser {
 
       const directive = line.substring(0, colonIdx).trim().toLowerCase()
       const value = line.substring(colonIdx + 1).trim()
+
+      // Sitemap directives are global (not tied to a user-agent block).
+      if (directive === 'sitemap') {
+        if (value.length > 0) sitemaps.push(value)
+        lastDirectiveWasAgent = false
+        continue
+      }
 
       if (directive === 'user-agent') {
         // If the previous directive was also a user-agent, this is a multi-agent block
@@ -128,7 +137,14 @@ export class RobotsParser {
       }
     }
 
-    return { allowRules, disallowRules }
+    return { allowRules, disallowRules, sitemaps }
+  }
+
+  /**
+   * Return sitemap URLs declared in the origin's robots.txt (if any).
+   */
+  getSitemaps(origin: string): string[] {
+    return this.rulesCache.get(origin)?.sitemaps ?? []
   }
 
   /**

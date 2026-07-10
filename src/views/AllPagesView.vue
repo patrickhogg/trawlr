@@ -3,9 +3,11 @@ import type { CrawledPage } from '../types'
 import { useDataTable, type FacetDef } from '../composables/useDataTable'
 import TableToolbar from '../components/TableToolbar.vue'
 import UrlCell from '../components/UrlCell.vue'
+import { inlinkCountFor } from '../lib/analysis'
 
 const props = defineProps<{
   pages: CrawledPage[]
+  inlinks: Map<string, number>
 }>()
 
 function statusBucket(code: number): string {
@@ -70,6 +72,7 @@ const table = useDataTable<CrawledPage>({
     descStatus: (p) => p.seo?.metaDescription.status ?? '',
     kwStatus: (p) => p.seo?.metaKeywords.status ?? '',
     links: (p) => p.links.length,
+    inlinks: (p) => inlinkCountFor(p, props.inlinks),
   },
   facets,
   defaultSort: { key: 'url', dir: 'asc' },
@@ -139,6 +142,7 @@ function seoStatusIcon(status: string): string {
             <th class="sortable" :aria-sort="table.ariaSort('descStatus')" @click="table.toggleSort('descStatus')">Description{{ table.sortIndicator('descStatus') }}</th>
             <th class="sortable" :aria-sort="table.ariaSort('kwStatus')" @click="table.toggleSort('kwStatus')">Keywords{{ table.sortIndicator('kwStatus') }}</th>
             <th class="sortable" :aria-sort="table.ariaSort('links')" @click="table.toggleSort('links')">Links{{ table.sortIndicator('links') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('inlinks')" @click="table.toggleSort('inlinks')" title="Internal links pointing to this page">Inlinks{{ table.sortIndicator('inlinks') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -169,9 +173,19 @@ function seoStatusIcon(status: string): string {
               <span v-else class="text-muted">—</span>
             </td>
             <td>{{ page.links.length }}</td>
+            <td :class="{ 'orphan-cell': inlinkCountFor(page, props.inlinks) === 0 }">
+              {{ inlinkCountFor(page, props.inlinks) }}
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
   </div>
 </template>
+
+<style scoped>
+.orphan-cell {
+  color: var(--color-warning);
+  font-weight: 600;
+}
+</style>

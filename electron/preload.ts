@@ -10,6 +10,12 @@ contextBridge.exposeInMainWorld('spider', {
   exportCsv: (type: string) => ipcRenderer.invoke('crawl:export-csv', type),
   getDefaultUserAgent: () => ipcRenderer.invoke('crawl:default-ua'),
 
+  // History / persistence
+  saveCrawl: () => ipcRenderer.invoke('history:save'),
+  listCrawls: () => ipcRenderer.invoke('history:list'),
+  loadCrawl: (id: string) => ipcRenderer.invoke('history:load', id),
+  deleteCrawl: (id: string) => ipcRenderer.invoke('history:delete', id),
+
   // Progress & page event listeners
   onProgress: (callback: (progress: any) => void) => {
     const listener = (_event: any, progress: any) => callback(progress)
