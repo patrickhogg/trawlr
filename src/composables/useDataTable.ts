@@ -30,8 +30,11 @@ export interface FacetDef<T> {
   label: string
   /** Selectable options. */
   options: FacetOption[]
-  /** Returns the row's value for this facet; compared against option.value. */
-  accessor: (row: T) => string | null | undefined
+  /**
+   * Returns the row's value(s) for this facet, compared against option.value.
+   * Return an array for rows that can match multiple options at once.
+   */
+  accessor: (row: T) => string | string[] | null | undefined
 }
 
 export interface DataTableConfig<T> {
@@ -197,7 +200,9 @@ export function useDataTable<T>(config: DataTableConfig<T>): UseDataTable<T> {
       if (!selected || selected.size === 0) continue
       result = result.filter((row) => {
         const value = facet.accessor(row)
-        return value != null && selected.has(value)
+        if (value == null) return false
+        if (Array.isArray(value)) return value.some((v) => selected.has(v))
+        return selected.has(value)
       })
     }
 

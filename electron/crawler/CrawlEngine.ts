@@ -9,9 +9,10 @@
 
 import * as cheerio from 'cheerio'
 import PQueue from 'p-queue'
-import { HttpClient, type HttpResponse, type RedirectHop } from './HttpClient'
+import { HttpClient, type RedirectHop } from './HttpClient'
 import { SeoAuditor, type SeoResult } from './SeoAuditor'
 import { RobotsParser } from './RobotsParser'
+import { SitemapParser } from './SitemapParser'
 
 // ---- Types ----
 
@@ -26,6 +27,7 @@ export interface CrawlSettings {
   descriptionMinLength: number
   descriptionMaxLength: number
   userAgent?: string
+  useSitemap?: boolean
 }
 
 export interface DiscoveredLink {
@@ -65,6 +67,8 @@ export interface CrawlResults {
   pages: CrawledPage[]
   allLinks: DiscoveredLink[]
   progress: CrawlProgress
+  /** Normalized internal page URLs discovered in the site's XML sitemap(s). */
+  sitemapUrls: string[]
 }
 
 type ProgressCallback = (progress: CrawlProgress) => void
@@ -77,6 +81,7 @@ export class CrawlEngine {
   private linkCheckClient: HttpClient // Separate client for link checks — no rate limit
   private seoAuditor: SeoAuditor
   private robotsParser: RobotsParser
+  private sitemapParser: SitemapParser
   private queue: PQueue | null = null
   private linkCheckQueue: PQueue | null = null
 
@@ -88,6 +93,7 @@ export class CrawlEngine {
 
   private seedOrigin: string = ''
   private seedRootDomain: string = ''
+  private sitemapUrls: string[] = []
   private settings: CrawlSettings | null = null
 
   private status: CrawlProgress['status'] = 'idle'
@@ -104,6 +110,7 @@ export class CrawlEngine {
     this.linkCheckClient = new HttpClient()
     this.seoAuditor = new SeoAuditor()
     this.robotsParser = new RobotsParser()
+    this.sitemapParser = new SitemapParser()
   }
 
   /**
@@ -140,6 +147,29 @@ export class CrawlEngine {
     // Fetch robots.txt
     await this.robotsParser.fetchRobotsTxt(settings.seedUrl, this.httpClient.getUserAgent())
 
+    // Discover XML sitemap(s). Used for orphan-page analysis, and (when
+    // enabled) to seed the crawl so pages not linked internally are still found.
+    if (settings.useSitemap !== false) {
+      try {
+        const declared = this.robotsParser.getSitemaps(this.seedOrigin)
+        const found = await this.sitemapParser.discover(
+          this.seedOrigin,
+          declared,
+          this.httpClient.getUserAgent()
+        )
+        // Keep only internal URLs, normalized for consistent comparison.
+        const internal = new Set<string>()
+        for (const u of found) {
+          if (this.classifyLink(u) === 'internal') {
+            internal.add(this.normalizeUrl(u))
+          }
+        }
+        this.sitemapUrls = Array.from(internal)
+      } catch {
+        this.sitemapUrls = []
+      }
+    }
+
     // Set up concurrency queues
     this.queue = new PQueue({ concurrency: settings.concurrency })
     // Higher concurrency for link checks since they're just HEAD requests
@@ -151,6 +181,16 @@ export class CrawlEngine {
     const normalizedSeed = this.normalizeUrl(settings.seedUrl)
     this.visited.add(normalizedSeed)
     this.urlQueue.push(normalizedSeed)
+
+    // Seed from sitemap so pages that aren't linked internally still get crawled.
+    if (settings.useSitemap !== false) {
+      for (const url of this.sitemapUrls) {
+        if (!this.visited.has(url) && this.robotsParser.isAllowed(url)) {
+          this.visited.add(url)
+          this.urlQueue.push(url)
+        }
+      }
+    }
 
     this.emitProgress()
 
@@ -184,6 +224,7 @@ export class CrawlEngine {
       pages: [...this.pages],
       allLinks: [...this.allLinks],
       progress: this.getProgress(),
+      sitemapUrls: [...this.sitemapUrls],
     }
   }
 
@@ -484,10 +525,16 @@ export class CrawlEngine {
   }
 
   private hasSeoIssues(seo: SeoResult): boolean {
+    // Meaningful, actionable checks gate the "issue" flag. Informational
+    // signals (keywords, OG, viewport, lang, structured data) are surfaced in
+    // the UI but do not by themselves mark a page as having an SEO issue.
     return (
       seo.title.status !== 'pass' ||
       seo.metaDescription.status !== 'pass' ||
-      seo.metaKeywords.status !== 'pass'
+      seo.h1.status !== 'pass' ||
+      seo.canonical.status !== 'pass' ||
+      seo.images.status !== 'pass' ||
+      seo.indexability.status !== 'pass'
     )
   }
 
@@ -505,6 +552,7 @@ export class CrawlEngine {
     this.allLinks = []
     this.seedOrigin = ''
     this.seedRootDomain = ''
+    this.sitemapUrls = []
     this.settings = null
     this.status = 'idle'
     this.startTime = 0

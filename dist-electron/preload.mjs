@@ -8,6 +8,11 @@ electron.contextBridge.exposeInMainWorld("spider", {
   getProgress: () => electron.ipcRenderer.invoke("crawl:progress:get"),
   exportCsv: (type) => electron.ipcRenderer.invoke("crawl:export-csv", type),
   getDefaultUserAgent: () => electron.ipcRenderer.invoke("crawl:default-ua"),
+  // History / persistence
+  saveCrawl: () => electron.ipcRenderer.invoke("history:save"),
+  listCrawls: () => electron.ipcRenderer.invoke("history:list"),
+  loadCrawl: (id) => electron.ipcRenderer.invoke("history:load", id),
+  deleteCrawl: (id) => electron.ipcRenderer.invoke("history:delete", id),
   // Progress & page event listeners
   onProgress: (callback) => {
     const listener = (_event, progress) => callback(progress);

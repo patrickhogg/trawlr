@@ -14,9 +14,12 @@ import {
   type DiscoveredLink,
 } from '../crawler/CrawlEngine'
 import { HttpClient } from '../crawler/HttpClient'
+import { CrawlStore } from '../persistence/CrawlStore'
 
 let engine: CrawlEngine | null = null
 let latestResults: CrawlResults | null = null
+let latestSeedUrl: string = ''
+const store = new CrawlStore()
 
 export function registerCrawlHandlers(getWin: () => BrowserWindow | null): void {
   // Start a crawl
@@ -39,6 +42,15 @@ export function registerCrawlHandlers(getWin: () => BrowserWindow | null): void 
 
     try {
       latestResults = await engine.start(settings, onProgress, onPage)
+      latestSeedUrl = settings.seedUrl
+      // Auto-save completed crawls (with content) so they appear in History.
+      if (latestResults.progress.status === 'completed' && latestResults.pages.length > 0) {
+        try {
+          await store.save(settings.seedUrl, latestResults)
+        } catch {
+          // Persistence failure is non-fatal — the crawl still returns.
+        }
+      }
       return { success: true, results: latestResults }
     } catch (err: any) {
       return { success: false, error: err.message }
@@ -127,6 +139,46 @@ export function registerCrawlHandlers(getWin: () => BrowserWindow | null): void 
   // Get default user agent
   ipcMain.handle('crawl:default-ua', async () => {
     return HttpClient.getDefaultUserAgent()
+  })
+
+  // ---- History / persistence ----
+
+  // Manually save the latest results (e.g. a cancelled crawl the user keeps).
+  ipcMain.handle('history:save', async () => {
+    const results = latestResults || (engine ? engine.getResults() : null)
+    if (!results || results.pages.length === 0) {
+      return { success: false, error: 'No results to save' }
+    }
+    try {
+      const meta = await store.save(latestSeedUrl || results.pages[0]?.url || 'crawl', results)
+      return { success: true, meta }
+    } catch (err: any) {
+      return { success: false, error: err.message }
+    }
+  })
+
+  // List saved crawls (metadata only).
+  ipcMain.handle('history:list', async () => {
+    try {
+      return await store.list()
+    } catch {
+      return []
+    }
+  })
+
+  // Load a full saved crawl by id.
+  ipcMain.handle('history:load', async (_event, id: string) => {
+    return await store.load(id)
+  })
+
+  // Delete a saved crawl by id.
+  ipcMain.handle('history:delete', async (_event, id: string) => {
+    try {
+      await store.delete(id)
+      return { success: true }
+    } catch (err: any) {
+      return { success: false, error: err.message }
+    }
   })
 }
 
@@ -227,34 +279,66 @@ function generateRedirectsCsv(links: DiscoveredLink[]): string {
   return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
 }
 
-function generateSeoCsv(pages: CrawledPage[]): string {
-  const issues = pages.filter(
-    (p) =>
-      p.seo &&
-      (p.seo.title.status !== 'pass' ||
-        p.seo.metaDescription.status !== 'pass' ||
-        p.seo.metaKeywords.status !== 'pass')
+function pageHasSeoIssue(p: CrawledPage): boolean {
+  const s = p.seo
+  return (
+    !!s &&
+    (s.title.status !== 'pass' ||
+      s.metaDescription.status !== 'pass' ||
+      s.h1.status !== 'pass' ||
+      s.canonical.status !== 'pass' ||
+      s.images.status !== 'pass' ||
+      s.indexability.status !== 'pass')
   )
+}
+
+function generateSeoCsv(pages: CrawledPage[]): string {
+  const issues = pages.filter(pageHasSeoIssue)
 
   const headers = [
     'URL',
     'Title Status',
-    'Title Message',
+    'Title',
     'Description Status',
-    'Description Message',
-    'Keywords Status',
-    'Keywords Message',
+    'Description',
+    'H1 Status',
+    'H1 Count',
+    'Canonical Status',
+    'Canonical',
+    'Images Status',
+    'Images Missing Alt',
+    'Indexable',
+    'Robots',
+    'Open Graph Status',
+    'Viewport',
+    'Lang',
+    'Structured Data',
+    'Word Count',
   ]
 
-  const rows = issues.map((page) => [
-    escapeCsvField(page.url),
-    escapeCsvField(page.seo?.title.status),
-    escapeCsvField(page.seo?.title.message),
-    escapeCsvField(page.seo?.metaDescription.status),
-    escapeCsvField(page.seo?.metaDescription.message),
-    escapeCsvField(page.seo?.metaKeywords.status),
-    escapeCsvField(page.seo?.metaKeywords.message),
-  ])
+  const rows = issues.map((page) => {
+    const s = page.seo
+    return [
+      escapeCsvField(page.url),
+      escapeCsvField(s?.title.status),
+      escapeCsvField(s?.title.value),
+      escapeCsvField(s?.metaDescription.status),
+      escapeCsvField(s?.metaDescription.value),
+      escapeCsvField(s?.h1.status),
+      escapeCsvField(s?.h1.count),
+      escapeCsvField(s?.canonical.status),
+      escapeCsvField(s?.canonical.value),
+      escapeCsvField(s?.images.status),
+      escapeCsvField(s?.images.missingAlt),
+      escapeCsvField(s?.indexability.indexable ? 'yes' : 'no'),
+      escapeCsvField(s?.indexability.robots),
+      escapeCsvField(s?.openGraph.status),
+      escapeCsvField(s?.viewport.present ? 'yes' : 'no'),
+      escapeCsvField(s?.lang.value),
+      escapeCsvField(s?.structuredData.count),
+      escapeCsvField(s?.wordCount),
+    ]
+  })
 
   return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
 }

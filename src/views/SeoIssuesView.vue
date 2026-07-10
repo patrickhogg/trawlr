@@ -1,42 +1,55 @@
 <script setup lang="ts">
-import type { CrawledPage } from '../types'
+import type { CrawledPage, SeoStatus } from '../types'
 import { useDataTable, type FacetDef } from '../composables/useDataTable'
 import TableToolbar from '../components/TableToolbar.vue'
 import UrlCell from '../components/UrlCell.vue'
+import { type DuplicateSets, isDuplicateTitle, isDuplicateDescription } from '../lib/analysis'
 
 const props = defineProps<{
   pages: CrawledPage[]
+  duplicates: DuplicateSets
 }>()
 
+function dupTags(p: CrawledPage): string[] {
+  const tags: string[] = []
+  if (isDuplicateTitle(p, props.duplicates)) tags.push('title')
+  if (isDuplicateDescription(p, props.duplicates)) tags.push('desc')
+  return tags
+}
+
+const statusOptions = [
+  { value: 'pass', label: 'Pass', tone: 'pass' as const },
+  { value: 'warning', label: 'Warning', tone: 'warning' as const },
+  { value: 'missing', label: 'Missing', tone: 'missing' as const },
+]
+const passWarnOptions = [
+  { value: 'pass', label: 'Pass', tone: 'pass' as const },
+  { value: 'warning', label: 'Warning', tone: 'warning' as const },
+]
+
 const facets: Array<FacetDef<CrawledPage>> = [
+  { key: 'titleStatus', label: 'Title', options: statusOptions, accessor: (p) => p.seo?.title.status },
+  { key: 'descStatus', label: 'Description', options: statusOptions, accessor: (p) => p.seo?.metaDescription.status },
+  { key: 'h1Status', label: 'H1', options: statusOptions, accessor: (p) => p.seo?.h1.status },
+  { key: 'canonicalStatus', label: 'Canonical', options: passWarnOptions, accessor: (p) => p.seo?.canonical.status },
+  { key: 'imagesStatus', label: 'Images', options: passWarnOptions, accessor: (p) => p.seo?.images.status },
   {
-    key: 'titleStatus',
-    label: 'Title',
+    key: 'indexability',
+    label: 'Indexability',
     options: [
-      { value: 'pass', label: 'Pass', tone: 'pass' },
-      { value: 'warning', label: 'Warning', tone: 'warning' },
-      { value: 'missing', label: 'Missing', tone: 'missing' },
+      { value: 'indexable', label: 'Indexable', tone: 'pass' },
+      { value: 'noindex', label: 'Noindex', tone: 'missing' },
     ],
-    accessor: (p) => p.seo?.title.status,
+    accessor: (p) => (p.seo ? (p.seo.indexability.indexable ? 'indexable' : 'noindex') : undefined),
   },
   {
-    key: 'descStatus',
-    label: 'Description',
+    key: 'duplicate',
+    label: 'Duplicate',
     options: [
-      { value: 'pass', label: 'Pass', tone: 'pass' },
-      { value: 'warning', label: 'Warning', tone: 'warning' },
-      { value: 'missing', label: 'Missing', tone: 'missing' },
+      { value: 'title', label: 'Dup title', tone: 'warning' },
+      { value: 'desc', label: 'Dup description', tone: 'warning' },
     ],
-    accessor: (p) => p.seo?.metaDescription.status,
-  },
-  {
-    key: 'kwStatus',
-    label: 'Keywords',
-    options: [
-      { value: 'pass', label: 'Pass', tone: 'pass' },
-      { value: 'missing', label: 'Missing', tone: 'missing' },
-    ],
-    accessor: (p) => p.seo?.metaKeywords.status,
+    accessor: (p) => dupTags(p),
   },
 ]
 
@@ -48,14 +61,18 @@ const table = useDataTable<CrawledPage>({
     title: (p) => p.seo?.title.value ?? '',
     titleStatus: (p) => p.seo?.title.status ?? '',
     descStatus: (p) => p.seo?.metaDescription.status ?? '',
-    kwStatus: (p) => p.seo?.metaKeywords.status ?? '',
+    h1Status: (p) => p.seo?.h1.status ?? '',
+    canonicalStatus: (p) => p.seo?.canonical.status ?? '',
+    imagesStatus: (p) => p.seo?.images.missingAlt ?? 0,
+    indexable: (p) => (p.seo?.indexability.indexable ? 1 : 0),
+    words: (p) => p.seo?.wordCount ?? 0,
   },
   facets,
   defaultSort: { key: 'url', dir: 'asc' },
   storageKey: 'trawlr.seo-issues',
 })
 
-function seoBadgeClass(status: string): string {
+function badgeClass(status: SeoStatus | undefined): string {
   switch (status) {
     case 'pass': return 'badge badge-pass'
     case 'warning': return 'badge badge-warning'
@@ -64,7 +81,7 @@ function seoBadgeClass(status: string): string {
   }
 }
 
-function seoIcon(status: string): string {
+function icon(status: SeoStatus | undefined): string {
   switch (status) {
     case 'pass': return '✓'
     case 'warning': return '⚠'
@@ -80,7 +97,7 @@ function seoIcon(status: string): string {
       :table="table"
       :facets="facets"
       input-id="filter-seo-issues"
-      search-placeholder="Filter pages with SEO issues..."
+      search-placeholder="Filter by URL, title, or description..."
       count-noun="pages with issues"
       count-tone="warning"
     />
@@ -105,50 +122,57 @@ function seoIcon(status: string): string {
           <tr>
             <th class="sortable" :aria-sort="table.ariaSort('url')" @click="table.toggleSort('url')">URL{{ table.sortIndicator('url') }}</th>
             <th class="sortable" :aria-sort="table.ariaSort('title')" @click="table.toggleSort('title')">Title{{ table.sortIndicator('title') }}</th>
-            <th class="sortable" :aria-sort="table.ariaSort('titleStatus')" @click="table.toggleSort('titleStatus')">Title Status{{ table.sortIndicator('titleStatus') }}</th>
-            <th>Meta Description</th>
-            <th class="sortable" :aria-sort="table.ariaSort('descStatus')" @click="table.toggleSort('descStatus')">Description Status{{ table.sortIndicator('descStatus') }}</th>
-            <th class="sortable" :aria-sort="table.ariaSort('kwStatus')" @click="table.toggleSort('kwStatus')">Keywords Status{{ table.sortIndicator('kwStatus') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('titleStatus')" @click="table.toggleSort('titleStatus')">Title{{ table.sortIndicator('titleStatus') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('descStatus')" @click="table.toggleSort('descStatus')">Desc{{ table.sortIndicator('descStatus') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('h1Status')" @click="table.toggleSort('h1Status')">H1{{ table.sortIndicator('h1Status') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('canonicalStatus')" @click="table.toggleSort('canonicalStatus')">Canonical{{ table.sortIndicator('canonicalStatus') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('imagesStatus')" @click="table.toggleSort('imagesStatus')">Images{{ table.sortIndicator('imagesStatus') }}</th>
+            <th class="sortable" :aria-sort="table.ariaSort('indexable')" @click="table.toggleSort('indexable')">Index{{ table.sortIndicator('indexable') }}</th>
+            <th>Duplicate</th>
+            <th class="sortable" :aria-sort="table.ariaSort('words')" @click="table.toggleSort('words')">Words{{ table.sortIndicator('words') }}</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="page in table.rows.value" :key="page.url">
             <UrlCell :url="page.url" />
-            <td class="content-cell" :title="page.seo?.title.value || ''">
-              {{ page.seo?.title.value || '—' }}
-            </td>
+            <td class="content-cell" :title="page.seo?.title.value || ''">{{ page.seo?.title.value || '—' }}</td>
             <td>
-              <span
-                v-if="page.seo"
-                :class="seoBadgeClass(page.seo.title.status)"
-                :title="page.seo.title.message"
-              >
-                {{ seoIcon(page.seo.title.status) }} {{ page.seo.title.status }}
-                <span v-if="page.seo.title.length" class="badge-detail">({{ page.seo.title.length }})</span>
-              </span>
-            </td>
-            <td class="content-cell" :title="page.seo?.metaDescription.value || ''">
-              {{ page.seo?.metaDescription.value || '—' }}
-            </td>
-            <td>
-              <span
-                v-if="page.seo"
-                :class="seoBadgeClass(page.seo.metaDescription.status)"
-                :title="page.seo.metaDescription.message"
-              >
-                {{ seoIcon(page.seo.metaDescription.status) }} {{ page.seo.metaDescription.status }}
-                <span v-if="page.seo.metaDescription.length" class="badge-detail">({{ page.seo.metaDescription.length }})</span>
+              <span v-if="page.seo" :class="badgeClass(page.seo.title.status)" :title="page.seo.title.message">
+                {{ icon(page.seo.title.status) }}<span v-if="page.seo.title.length" class="badge-detail"> {{ page.seo.title.length }}</span>
               </span>
             </td>
             <td>
-              <span
-                v-if="page.seo"
-                :class="seoBadgeClass(page.seo.metaKeywords.status)"
-                :title="page.seo.metaKeywords.message"
-              >
-                {{ seoIcon(page.seo.metaKeywords.status) }} {{ page.seo.metaKeywords.status }}
+              <span v-if="page.seo" :class="badgeClass(page.seo.metaDescription.status)" :title="page.seo.metaDescription.message">
+                {{ icon(page.seo.metaDescription.status) }}<span v-if="page.seo.metaDescription.length" class="badge-detail"> {{ page.seo.metaDescription.length }}</span>
               </span>
             </td>
+            <td>
+              <span v-if="page.seo" :class="badgeClass(page.seo.h1.status)" :title="page.seo.h1.message">
+                {{ icon(page.seo.h1.status) }}<span v-if="page.seo.h1.count > 1" class="badge-detail"> {{ page.seo.h1.count }}</span>
+              </span>
+            </td>
+            <td>
+              <span v-if="page.seo" :class="badgeClass(page.seo.canonical.status)" :title="page.seo.canonical.message">
+                {{ icon(page.seo.canonical.status) }}
+              </span>
+            </td>
+            <td>
+              <span v-if="page.seo" :class="badgeClass(page.seo.images.status)" :title="page.seo.images.message">
+                {{ icon(page.seo.images.status) }}<span v-if="page.seo.images.missingAlt" class="badge-detail"> {{ page.seo.images.missingAlt }}</span>
+              </span>
+            </td>
+            <td>
+              <span v-if="page.seo" :class="page.seo.indexability.indexable ? 'badge badge-pass' : 'badge badge-missing'" :title="page.seo.indexability.message">
+                {{ page.seo.indexability.indexable ? '✓' : 'noindex' }}
+              </span>
+            </td>
+            <td>
+              <span v-for="tag in dupTags(page)" :key="tag" class="badge badge-warning dup-badge">
+                {{ tag === 'title' ? 'title' : 'desc' }}
+              </span>
+              <span v-if="dupTags(page).length === 0" class="text-muted">—</span>
+            </td>
+            <td class="num-cell">{{ page.seo?.wordCount ?? '—' }}</td>
           </tr>
         </tbody>
       </table>
@@ -158,7 +182,7 @@ function seoIcon(status: string): string {
 
 <style scoped>
 .content-cell {
-  max-width: 250px;
+  max-width: 220px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -169,6 +193,14 @@ function seoIcon(status: string): string {
 .badge-detail {
   opacity: 0.7;
   font-size: 0.65rem;
-  margin-left: 2px;
+}
+
+.dup-badge {
+  margin-right: 3px;
+}
+
+.num-cell {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
 }
 </style>

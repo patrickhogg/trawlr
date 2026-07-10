@@ -22,7 +22,7 @@ var __privateWrapper = (obj, member, setter, getter) => ({
 });
 var __superGet = (cls, obj, key2) => __reflectGet(__getProtoOf(cls), key2, obj);
 var _a2, _handler, _b, _c, _paused, _reason, _aborted, _abort, _handler2, _controller, _d, _e, _f, _g, _h, _i, _map, _RuntimeFeatures_instances, detectRuntimeFeature_fn, _j, _k, _l, _m, _n, _o, _p, _client, _ProxyAgent_instances, getUrl_fn, _q, _noProxyValue, _noProxyEntries, _opts, _EnvHttpProxyAgent_instances, getProxyAgentForUrl_fn, shouldProxy_fn, parseNoProxy_fn, noProxyChanged_get, noProxyEnv_get, _agent, _options, _flushTimeout, _isUrlExcluded, _snapshots, _snapshotPath, _maxSnapshots, _autoFlush, _headerFilters, _SnapshotRecorder_instances, startAutoFlush_fn, stopAutoFlush_fn, scheduleFlush_fn, _r, _SnapshotAgent_instances, asyncDispatch_fn, recordAndReplay_fn, replaySnapshot_fn, setupMockInterceptors_fn, _handler3, _onCompleteCalled, _onErrorCalled, _onResponseStartCalled, _s, _statusCode, _contentType, _decoder, _headers, _body, _ResponseErrorHandler_instances, checkContentType_fn, _maxSize, _dumped, _size, _controller2, _DumpHandler_instances, abort_fn, _maxItems, _records, _maxTTL, _maxItems2, _DNSInstance_instances, defaultLookup_fn, defaultPick_fn, _state, _opts2, _dispatch, _origin, _controller3, _newOrigin, _firstTry, _cacheKey, _cacheType, _cacheByDefault, _store, _handler4, _writeStream, _t, _maxCount, _maxSize2, _maxEntrySize, _size2, _count, _entries, _hasEmittedMaxSizeEvent, _u, _successful, _callback, _handler5, _context, _allowErrorStatusCodes, _v, _decompressors, _skipStatusCodes, _skipErrorResponses, _DecompressHandler_instances, shouldSkipDecompression_fn, createDecompressionChain_fn, setupDecompressorEvents_fn, setupSingleDecompressor_fn, setupMultipleDecompressors_fn, cleanupDecompressors_fn, _primaryHandler, _waitingHandlers, _maxBufferSize, _statusCode2, _headers2, _statusMessage, _aborted2, _responseStarted, _responseDataStarted, _completed, _controller4, _onComplete, _DeduplicationHandler_instances, createWaitingHandler_fn, bufferWaitingChunk_fn, flushWaitingHandler_fn, errorWaitingHandler_fn, pruneDoneWaitingHandlers_fn, _w, _maxEntrySize2, _maxCount2, _db, _getValuesQuery, _updateValueQuery, _insertValueQuery, _deleteExpiredValuesQuery, _deleteByUrlQuery, _countEntriesQuery, _deleteOldValuesQuery, _SqliteCacheStore_instances, prune_fn, makeValueUrl_fn, findValue_fn, _x, _queue, _head, _PriorityQueue_instances, compact_fn, _carryoverIntervalCount, _isIntervalIgnored, _intervalCount, _intervalCap, _rateLimitedInInterval, _rateLimitFlushScheduled, _interval, _intervalEnd, _lastExecutionTime, _intervalId, _timeoutId, _strict, _strictTicks, _strictTicksStartIndex, _queue2, _queueClass, _pending, _concurrency, _isPaused, _idAssigner, _runningTasks, _queueAbortListenerCleanupFunctions, _PQueue_instances, cleanupStrictTicks_fn, consumeIntervalSlot_fn, rollbackIntervalSlot_fn, getActiveTicksCount_fn, doesIntervalAllowAnother_get, doesConcurrentAllowAnother_get, next_fn, onResumeInterval_fn, isIntervalPausedAt_fn, createIntervalTimeout_fn, clearIntervalTimer_fn, clearTimeoutTimer_fn, tryToStartAnother_fn, initializeIntervalIfNeeded_fn, onInterval_fn, processQueue_fn, onEvent_fn, setupRateLimitTracking_fn, scheduleRateLimitUpdate_fn, rollbackIntervalConsumption_fn, updateRateLimitState_fn;
-import { ipcMain, dialog, app, BrowserWindow } from "electron";
+import { app, ipcMain, dialog, BrowserWindow } from "electron";
 import { createRequire } from "node:module";
 import require$$1$3, { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -48,6 +48,7 @@ import require$$1$4 from "node:async_hooks";
 import require$$1$5 from "node:console";
 import require$$2$6 from "node:timers";
 import require$$1$6 from "node:dns";
+import { promises } from "node:fs";
 const defaultOpts$2 = {
   _useHtmlParser2: false
 };
@@ -3865,7 +3866,7 @@ function getAugmentedNamespace(n) {
   });
   return a;
 }
-var boolbase$1 = {
+var boolbase = {
   trueFunc: function trueFunc() {
     return true;
   },
@@ -3873,7 +3874,7 @@ var boolbase$1 = {
     return false;
   }
 };
-const boolbase = /* @__PURE__ */ getDefaultExportFromCjs(boolbase$1);
+const boolbase$1 = /* @__PURE__ */ getDefaultExportFromCjs(boolbase);
 const procedure = /* @__PURE__ */ new Map([
   [SelectorType.Universal, 50],
   [SelectorType.Tag, 30],
@@ -4023,7 +4024,7 @@ const attributeRules = {
     const { adapter: adapter2 } = options;
     const { name, value } = data2;
     if (/\s/.test(value)) {
-      return boolbase.falseFunc;
+      return boolbase$1.falseFunc;
     }
     const regex = new RegExp(`(?:^|\\s)${escapeRegex(value)}(?:$|\\s)`, shouldIgnoreCase(data2, options) ? "i" : "");
     return function element(elem) {
@@ -4040,7 +4041,7 @@ const attributeRules = {
     let { value } = data2;
     const len = value.length;
     if (len === 0) {
-      return boolbase.falseFunc;
+      return boolbase$1.falseFunc;
     }
     if (shouldIgnoreCase(data2, options)) {
       value = value.toLowerCase();
@@ -4060,7 +4061,7 @@ const attributeRules = {
     let { value } = data2;
     const len = -value.length;
     if (len === 0) {
-      return boolbase.falseFunc;
+      return boolbase$1.falseFunc;
     }
     if (shouldIgnoreCase(data2, options)) {
       value = value.toLowerCase();
@@ -4078,7 +4079,7 @@ const attributeRules = {
     const { adapter: adapter2 } = options;
     const { name, value } = data2;
     if (value === "") {
-      return boolbase.falseFunc;
+      return boolbase$1.falseFunc;
     }
     if (shouldIgnoreCase(data2, options)) {
       const regex = new RegExp(escapeRegex(value), "i");
@@ -4167,13 +4168,13 @@ function compile(parsed) {
   const a = parsed[0];
   const b = parsed[1] - 1;
   if (b < 0 && a <= 0)
-    return boolbase.falseFunc;
+    return boolbase$1.falseFunc;
   if (a === -1)
     return (index2) => index2 <= b;
   if (a === 0)
     return (index2) => index2 === b;
   if (a === 1)
-    return b < 0 ? boolbase.trueFunc : (index2) => index2 >= b;
+    return b < 0 ? boolbase$1.trueFunc : (index2) => index2 >= b;
   const absA = Math.abs(a);
   const bMod = (b % absA + absA) % absA;
   return a > 1 ? (index2) => index2 >= b && index2 % absA === bMod : (index2) => index2 <= b && index2 % absA === bMod;
@@ -4202,9 +4203,9 @@ const filters = {
   // Location specific methods
   "nth-child"(next2, rule, { adapter: adapter2, equals }) {
     const func = nthCheck(rule);
-    if (func === boolbase.falseFunc)
-      return boolbase.falseFunc;
-    if (func === boolbase.trueFunc)
+    if (func === boolbase$1.falseFunc)
+      return boolbase$1.falseFunc;
+    if (func === boolbase$1.trueFunc)
       return getChildFunc(next2, adapter2);
     return function nthChild(elem) {
       const siblings2 = adapter2.getSiblings(elem);
@@ -4221,9 +4222,9 @@ const filters = {
   },
   "nth-last-child"(next2, rule, { adapter: adapter2, equals }) {
     const func = nthCheck(rule);
-    if (func === boolbase.falseFunc)
-      return boolbase.falseFunc;
-    if (func === boolbase.trueFunc)
+    if (func === boolbase$1.falseFunc)
+      return boolbase$1.falseFunc;
+    if (func === boolbase$1.trueFunc)
       return getChildFunc(next2, adapter2);
     return function nthLastChild(elem) {
       const siblings2 = adapter2.getSiblings(elem);
@@ -4240,9 +4241,9 @@ const filters = {
   },
   "nth-of-type"(next2, rule, { adapter: adapter2, equals }) {
     const func = nthCheck(rule);
-    if (func === boolbase.falseFunc)
-      return boolbase.falseFunc;
-    if (func === boolbase.trueFunc)
+    if (func === boolbase$1.falseFunc)
+      return boolbase$1.falseFunc;
+    if (func === boolbase$1.trueFunc)
       return getChildFunc(next2, adapter2);
     return function nthOfType(elem) {
       const siblings2 = adapter2.getSiblings(elem);
@@ -4260,9 +4261,9 @@ const filters = {
   },
   "nth-last-of-type"(next2, rule, { adapter: adapter2, equals }) {
     const func = nthCheck(rule);
-    if (func === boolbase.falseFunc)
-      return boolbase.falseFunc;
-    if (func === boolbase.trueFunc)
+    if (func === boolbase$1.falseFunc)
+      return boolbase$1.falseFunc;
+    if (func === boolbase$1.trueFunc)
       return getChildFunc(next2, adapter2);
     return function nthLastOfType(elem) {
       const siblings2 = adapter2.getSiblings(elem);
@@ -4303,7 +4304,7 @@ function dynamicStatePseudo(name) {
   return function dynamicPseudo(next2, _rule, { adapter: adapter2 }) {
     const func = adapter2[name];
     if (typeof func !== "function") {
-      return boolbase.falseFunc;
+      return boolbase$1.falseFunc;
     }
     return function active(elem) {
       return func(elem) && next2(elem);
@@ -4410,8 +4411,8 @@ const aliases = {
 };
 const PLACEHOLDER_ELEMENT = {};
 function ensureIsTag(next2, adapter2) {
-  if (next2 === boolbase.falseFunc)
-    return boolbase.falseFunc;
+  if (next2 === boolbase$1.falseFunc)
+    return boolbase$1.falseFunc;
   return (elem) => adapter2.isTag(elem) && next2(elem);
 }
 function getNextSiblings(elem, adapter2) {
@@ -4437,7 +4438,7 @@ function copyOptions(options) {
 }
 const is$2 = (next2, token, options, context, compileToken2) => {
   const func = compileToken2(token, copyOptions(options), context);
-  return func === boolbase.trueFunc ? next2 : func === boolbase.falseFunc ? boolbase.falseFunc : (elem) => func(elem) && next2(elem);
+  return func === boolbase$1.trueFunc ? next2 : func === boolbase$1.falseFunc ? boolbase$1.falseFunc : (elem) => func(elem) && next2(elem);
 };
 const subselects = {
   is: is$2,
@@ -4448,7 +4449,7 @@ const subselects = {
   where: is$2,
   not(next2, token, options, context, compileToken2) {
     const func = compileToken2(token, copyOptions(options), context);
-    return func === boolbase.falseFunc ? next2 : func === boolbase.trueFunc ? boolbase.falseFunc : (elem) => !func(elem) && next2(elem);
+    return func === boolbase$1.falseFunc ? next2 : func === boolbase$1.trueFunc ? boolbase$1.falseFunc : (elem) => !func(elem) && next2(elem);
   },
   has(next2, subselect, options, _context2, compileToken2) {
     const { adapter: adapter2 } = options;
@@ -4459,10 +4460,10 @@ const subselects = {
       [PLACEHOLDER_ELEMENT]
     ) : void 0;
     const compiled = compileToken2(subselect, opts, context);
-    if (compiled === boolbase.falseFunc)
-      return boolbase.falseFunc;
+    if (compiled === boolbase$1.falseFunc)
+      return boolbase$1.falseFunc;
     const hasElement = ensureIsTag(compiled, adapter2);
-    if (context && compiled !== boolbase.trueFunc) {
+    if (context && compiled !== boolbase$1.trueFunc) {
       const { shouldTestNextSiblings = false } = compiled;
       return (elem) => {
         if (!next2(elem))
@@ -4688,19 +4689,19 @@ function compileToken(token, options, context) {
       }
     }
     return compileRules(rules, options, finalContext);
-  }).reduce(reduceRules, boolbase.falseFunc);
+  }).reduce(reduceRules, boolbase$1.falseFunc);
   query.shouldTestNextSiblings = shouldTestNextSiblings;
   return query;
 }
 function compileRules(rules, options, context) {
   var _a3;
-  return rules.reduce((previous, rule) => previous === boolbase.falseFunc ? boolbase.falseFunc : compileGeneralSelector(previous, rule, options, context, compileToken), (_a3 = options.rootFunc) !== null && _a3 !== void 0 ? _a3 : boolbase.trueFunc);
+  return rules.reduce((previous, rule) => previous === boolbase$1.falseFunc ? boolbase$1.falseFunc : compileGeneralSelector(previous, rule, options, context, compileToken), (_a3 = options.rootFunc) !== null && _a3 !== void 0 ? _a3 : boolbase$1.trueFunc);
 }
 function reduceRules(a, b) {
-  if (b === boolbase.falseFunc || a === boolbase.trueFunc) {
+  if (b === boolbase$1.falseFunc || a === boolbase$1.trueFunc) {
     return a;
   }
-  if (a === boolbase.falseFunc || b === boolbase.trueFunc) {
+  if (a === boolbase$1.falseFunc || b === boolbase$1.trueFunc) {
     return b;
   }
   return function combine(elem) {
@@ -4940,8 +4941,8 @@ function findFilterElements(root2, selector, options, queryForSelector, totalLim
        */
       rootFunc: (el) => result.includes(el)
     };
-  } else if (options.rootFunc && options.rootFunc !== boolbase$1.trueFunc) {
-    options = { ...options, rootFunc: boolbase$1.trueFunc };
+  } else if (options.rootFunc && options.rootFunc !== boolbase.trueFunc) {
+    options = { ...options, rootFunc: boolbase.trueFunc };
   }
   return remainingSelector.some(isFilter) ? findFilterElements(result, remainingSelector, options, false, totalLimit) : remainingHasTraversal ? (
     // Query existing elements to resolve traversal.
@@ -4964,7 +4965,7 @@ function filterElements(elements, sel, options) {
   if (els.length === 0)
     return els;
   const query = _compileToken(sel, options);
-  return query === boolbase$1.trueFunc ? els : els.filter(query);
+  return query === boolbase.trueFunc ? els : els.filter(query);
 }
 const reContextSelector = /^\s*(?:[+~]|:scope\b)/;
 function find(selectorOrHaystack) {
@@ -35558,18 +35559,18 @@ let ProxyAgent$1 = (_q = class extends DispatcherBase$1 {
     );
   }
   [kClose$3]() {
-    const promises = [this[kAgent$1].close()];
+    const promises2 = [this[kAgent$1].close()];
     if (this[kClient]) {
-      promises.push(this[kClient].close());
+      promises2.push(this[kClient].close());
     }
-    return Promise.all(promises);
+    return Promise.all(promises2);
   }
   [kDestroy$1]() {
-    const promises = [this[kAgent$1].destroy()];
+    const promises2 = [this[kAgent$1].destroy()];
     if (this[kClient]) {
-      promises.push(this[kClient].destroy());
+      promises2.push(this[kClient].destroy());
     }
-    return Promise.all(promises);
+    return Promise.all(promises2);
   }
 }, _ProxyAgent_instances = new WeakSet(), /**
  * @param {import('../../types/proxy-agent').ProxyAgent.Options | string | URL} opts
@@ -37862,13 +37863,13 @@ var mockClient = MockClient$1;
 var mockCallHistory = {};
 const { kMockCallHistoryAddLog: kMockCallHistoryAddLog$1 } = mockSymbols;
 const { InvalidArgumentError: InvalidArgumentError$9 } = errors;
-function handleFilterCallsWithOptions(criteria, options, handler, store, allLogs) {
+function handleFilterCallsWithOptions(criteria, options, handler, store2, allLogs) {
   switch (options.operator) {
     case "OR":
-      store.push(...handler(criteria, allLogs));
-      return store;
+      store2.push(...handler(criteria, allLogs));
+      return store2;
     case "AND":
-      return handler(criteria, store);
+      return handler(criteria, store2);
     default:
       throw new InvalidArgumentError$9("options.operator must to be a case insensitive string equal to 'OR' or 'AND'");
   }
@@ -40153,12 +40154,12 @@ function isEtagUsable$1(etag) {
   }
   return false;
 }
-function assertCacheStore$1(store, name = "CacheStore") {
-  if (typeof store !== "object" || store === null) {
-    throw new TypeError(`expected type of ${name} to be a CacheStore, got ${store === null ? "null" : typeof store}`);
+function assertCacheStore$1(store2, name = "CacheStore") {
+  if (typeof store2 !== "object" || store2 === null) {
+    throw new TypeError(`expected type of ${name} to be a CacheStore, got ${store2 === null ? "null" : typeof store2}`);
   }
   for (const fn of ["get", "createWriteStream", "delete"]) {
-    if (typeof store[fn] !== "function") {
+    if (typeof store2[fn] !== "function") {
       throw new TypeError(`${name} needs to have a \`${fn}()\` function`);
     }
   }
@@ -40723,7 +40724,7 @@ let CacheHandler$1 = (_t = class {
    * @param {import('../../types/cache-interceptor.d.ts').default.CacheKey} cacheKey
    * @param {import('../../types/dispatcher.d.ts').default.DispatchHandler} handler
    */
-  constructor({ store, type, cacheByDefault }, cacheKey, handler) {
+  constructor({ store: store2, type, cacheByDefault }, cacheKey, handler) {
     /**
      * @type {import('../../types/cache-interceptor.d.ts').default.CacheKey}
      */
@@ -40748,7 +40749,7 @@ let CacheHandler$1 = (_t = class {
      * @type {import('node:stream').Writable | undefined}
      */
     __privateAdd(this, _writeStream);
-    __privateSet(this, _store, store);
+    __privateSet(this, _store, store2);
     __privateSet(this, _cacheType, type);
     __privateSet(this, _cacheByDefault, cacheByDefault);
     __privateSet(this, _cacheKey, cacheKey);
@@ -41163,7 +41164,7 @@ let MemoryCacheStore$1 = (_u = class extends EventEmitter$1 {
     assertCacheKey$1(key2);
     assertCacheValue$1(val2);
     const topLevelKey = `${key2.origin}:${key2.path}`;
-    const store = this;
+    const store2 = this;
     const entry = { ...key2, ...val2, body: [], size: 0 };
     return new Writable$1({
       write(chunk, encoding2, callback) {
@@ -41171,7 +41172,7 @@ let MemoryCacheStore$1 = (_u = class extends EventEmitter$1 {
           chunk = Buffer.from(chunk, encoding2);
         }
         entry.size += chunk.byteLength;
-        if (entry.size >= __privateGet(store, _maxEntrySize)) {
+        if (entry.size >= __privateGet(store2, _maxEntrySize)) {
           this.destroy();
         } else {
           entry.body.push(chunk);
@@ -41179,42 +41180,42 @@ let MemoryCacheStore$1 = (_u = class extends EventEmitter$1 {
         callback(null);
       },
       final(callback) {
-        let entries = __privateGet(store, _entries).get(topLevelKey);
+        let entries = __privateGet(store2, _entries).get(topLevelKey);
         if (!entries) {
           entries = [];
-          __privateGet(store, _entries).set(topLevelKey, entries);
+          __privateGet(store2, _entries).set(topLevelKey, entries);
         }
         const previousEntry = findEntry(key2, entries, Date.now());
         if (previousEntry) {
           const index2 = entries.indexOf(previousEntry);
           entries.splice(index2, 1, entry);
-          __privateSet(store, _size2, __privateGet(store, _size2) - previousEntry.size);
+          __privateSet(store2, _size2, __privateGet(store2, _size2) - previousEntry.size);
         } else {
           entries.push(entry);
-          __privateSet(store, _count, __privateGet(store, _count) + 1);
+          __privateSet(store2, _count, __privateGet(store2, _count) + 1);
         }
-        __privateSet(store, _size2, __privateGet(store, _size2) + entry.size);
-        if (__privateGet(store, _size2) > __privateGet(store, _maxSize2) || __privateGet(store, _count) > __privateGet(store, _maxCount)) {
-          if (!__privateGet(store, _hasEmittedMaxSizeEvent)) {
-            store.emit("maxSizeExceeded", {
-              size: __privateGet(store, _size2),
-              maxSize: __privateGet(store, _maxSize2),
-              count: __privateGet(store, _count),
-              maxCount: __privateGet(store, _maxCount)
+        __privateSet(store2, _size2, __privateGet(store2, _size2) + entry.size);
+        if (__privateGet(store2, _size2) > __privateGet(store2, _maxSize2) || __privateGet(store2, _count) > __privateGet(store2, _maxCount)) {
+          if (!__privateGet(store2, _hasEmittedMaxSizeEvent)) {
+            store2.emit("maxSizeExceeded", {
+              size: __privateGet(store2, _size2),
+              maxSize: __privateGet(store2, _maxSize2),
+              count: __privateGet(store2, _count),
+              maxCount: __privateGet(store2, _maxCount)
             });
-            __privateSet(store, _hasEmittedMaxSizeEvent, true);
+            __privateSet(store2, _hasEmittedMaxSizeEvent, true);
           }
-          for (const [key3, entries2] of __privateGet(store, _entries)) {
+          for (const [key3, entries2] of __privateGet(store2, _entries)) {
             for (const entry2 of entries2.splice(0, entries2.length / 2)) {
-              __privateSet(store, _size2, __privateGet(store, _size2) - entry2.size);
-              __privateSet(store, _count, __privateGet(store, _count) - 1);
+              __privateSet(store2, _size2, __privateGet(store2, _size2) - entry2.size);
+              __privateSet(store2, _count, __privateGet(store2, _count) - 1);
             }
             if (entries2.length === 0) {
-              __privateGet(store, _entries).delete(key3);
+              __privateGet(store2, _entries).delete(key3);
             }
           }
-          if (__privateGet(store, _size2) < __privateGet(store, _maxSize2) && __privateGet(store, _count) < __privateGet(store, _maxCount)) {
-            __privateSet(store, _hasEmittedMaxSizeEvent, false);
+          if (__privateGet(store2, _size2) < __privateGet(store2, _maxSize2) && __privateGet(store2, _count) < __privateGet(store2, _maxCount)) {
+            __privateSet(store2, _hasEmittedMaxSizeEvent, false);
           }
         }
         callback(null);
@@ -41581,7 +41582,7 @@ function handleResult(dispatch, globalOpts, cacheKey, handler, opts, reqCacheCon
 }
 var cache$1 = (opts = {}) => {
   const {
-    store = new MemoryCacheStore(),
+    store: store2 = new MemoryCacheStore(),
     methods = ["GET"],
     cacheByDefault = void 0,
     type = "shared",
@@ -41590,7 +41591,7 @@ var cache$1 = (opts = {}) => {
   if (typeof opts !== "object" || opts === null) {
     throw new TypeError(`expected type of opts to be an Object, got ${opts === null ? "null" : typeof opts}`);
   }
-  assertCacheStore(store, "opts.store");
+  assertCacheStore(store2, "opts.store");
   assertCacheMethods(methods, "opts.methods");
   assertCacheOrigins(origins, "opts.origins");
   if (typeof cacheByDefault !== "undefined" && typeof cacheByDefault !== "number") {
@@ -41600,7 +41601,7 @@ var cache$1 = (opts = {}) => {
     throw new TypeError(`expected opts.type to be shared, private, or undefined, got ${typeof type}`);
   }
   const globalOpts = {
-    store,
+    store: store2,
     methods,
     cacheByDefault,
     type
@@ -41640,7 +41641,7 @@ var cache$1 = (opts = {}) => {
         return dispatch(opts2, handler);
       }
       const cacheKey = makeCacheKey$1(opts2);
-      const result = store.get(cacheKey);
+      const result = store2.get(cacheKey);
       if (result && typeof result.then === "function") {
         return result.then((result2) => handleResult(
           dispatch,
@@ -42560,12 +42561,12 @@ var sqliteCacheStore = (_x = class {
     assertCacheValue(value);
     let size = 0;
     const body2 = [];
-    const store = this;
+    const store2 = this;
     return new Writable({
       decodeStrings: true,
       write(chunk, encoding2, callback) {
         size += chunk.byteLength;
-        if (size < __privateGet(store, _maxEntrySize2)) {
+        if (size < __privateGet(store2, _maxEntrySize2)) {
           body2.push(chunk);
         } else {
           this.destroy();
@@ -42573,7 +42574,7 @@ var sqliteCacheStore = (_x = class {
         callback();
       },
       final(callback) {
-        store.set(key2, { ...value, body: body2 });
+        store2.set(key2, { ...value, body: body2 });
         callback();
       }
     });
@@ -50962,112 +50963,157 @@ class SeoAuditor {
     __publicField(this, "limits");
     this.limits = { ...DEFAULT_SEO_LIMITS, ...limits };
   }
-  /**
-   * Update the limits used for auditing.
-   */
   setLimits(limits) {
     Object.assign(this.limits, limits);
   }
-  /**
-   * Audit HTML content for SEO meta tags.
-   */
   audit(html2) {
     const $2 = load(html2);
     return {
       title: this.auditTitle($2),
       metaDescription: this.auditMetaDescription($2),
-      metaKeywords: this.auditMetaKeywords($2)
+      metaKeywords: this.auditMetaKeywords($2),
+      h1: this.auditH1($2),
+      canonical: this.auditCanonical($2),
+      images: this.auditImages($2),
+      indexability: this.auditIndexability($2),
+      openGraph: this.auditOpenGraph($2),
+      viewport: this.auditViewport($2),
+      lang: this.auditLang($2),
+      structuredData: this.auditStructuredData($2),
+      wordCount: this.countWords($2)
     };
   }
   auditTitle($2) {
     const titleEl = $2("title");
     const value = titleEl.length > 0 ? titleEl.first().text().trim() : null;
     if (!value || value.length === 0) {
-      return {
-        value: null,
-        length: 0,
-        status: "missing",
-        message: "Title tag is missing or empty"
-      };
+      return { value: null, length: 0, status: "missing", message: "Title tag is missing or empty" };
     }
     const length = value.length;
     const { titleMin, titleMax } = this.limits;
     if (length < titleMin) {
-      return {
-        value,
-        length,
-        status: "warning",
-        message: `Title is too short (${length} chars). Recommended: ${titleMin}-${titleMax} characters`
-      };
+      return { value, length, status: "warning", message: `Title is too short (${length} chars). Recommended: ${titleMin}-${titleMax} characters` };
     }
     if (length > titleMax) {
-      return {
-        value,
-        length,
-        status: "warning",
-        message: `Title is too long (${length} chars). Recommended: ${titleMin}-${titleMax} characters`
-      };
+      return { value, length, status: "warning", message: `Title is too long (${length} chars). Recommended: ${titleMin}-${titleMax} characters` };
     }
-    return {
-      value,
-      length,
-      status: "pass",
-      message: `Title length is optimal (${length} chars)`
-    };
+    return { value, length, status: "pass", message: `Title length is optimal (${length} chars)` };
   }
   auditMetaDescription($2) {
     var _a3;
     const metaEl = $2('meta[name="description"]');
     const value = metaEl.length > 0 ? ((_a3 = metaEl.attr("content")) == null ? void 0 : _a3.trim()) || null : null;
     if (!value || value.length === 0) {
-      return {
-        value: null,
-        length: 0,
-        status: "missing",
-        message: "Meta description is missing or empty"
-      };
+      return { value: null, length: 0, status: "missing", message: "Meta description is missing or empty" };
     }
     const length = value.length;
     const { descriptionMin, descriptionMax } = this.limits;
     if (length < descriptionMin) {
-      return {
-        value,
-        length,
-        status: "warning",
-        message: `Meta description is too short (${length} chars). Recommended: ${descriptionMin}-${descriptionMax} characters`
-      };
+      return { value, length, status: "warning", message: `Meta description is too short (${length} chars). Recommended: ${descriptionMin}-${descriptionMax} characters` };
     }
     if (length > descriptionMax) {
-      return {
-        value,
-        length,
-        status: "warning",
-        message: `Meta description is too long (${length} chars). Recommended: ${descriptionMin}-${descriptionMax} characters`
-      };
+      return { value, length, status: "warning", message: `Meta description is too long (${length} chars). Recommended: ${descriptionMin}-${descriptionMax} characters` };
     }
-    return {
-      value,
-      length,
-      status: "pass",
-      message: `Meta description length is optimal (${length} chars)`
-    };
+    return { value, length, status: "pass", message: `Meta description length is optimal (${length} chars)` };
   }
   auditMetaKeywords($2) {
     var _a3;
     const metaEl = $2('meta[name="keywords"]');
     const value = metaEl.length > 0 ? ((_a3 = metaEl.attr("content")) == null ? void 0 : _a3.trim()) || null : null;
     if (!value || value.length === 0) {
-      return {
-        value: null,
-        status: "missing",
-        message: "Meta keywords tag is missing or empty"
-      };
+      return { value: null, status: "missing", message: "Meta keywords tag is missing or empty" };
     }
-    return {
-      value,
-      status: "pass",
-      message: "Meta keywords tag is present"
-    };
+    return { value, status: "pass", message: "Meta keywords tag is present" };
+  }
+  auditH1($2) {
+    const h1s = $2("h1");
+    const count = h1s.length;
+    const value = count > 0 ? h1s.first().text().trim() || null : null;
+    if (count === 0) {
+      return { count, value: null, status: "missing", message: "No H1 heading found" };
+    }
+    if (count > 1) {
+      return { count, value, status: "warning", message: `Multiple H1 headings found (${count}). Use a single H1 per page` };
+    }
+    return { count, value, status: "pass", message: "Exactly one H1 heading" };
+  }
+  auditCanonical($2) {
+    var _a3;
+    const el = $2('link[rel="canonical"]');
+    const value = el.length > 0 ? ((_a3 = el.attr("href")) == null ? void 0 : _a3.trim()) || null : null;
+    if (!value) {
+      return { value: null, status: "warning", message: "No canonical link tag" };
+    }
+    return { value, status: "pass", message: "Canonical link tag present" };
+  }
+  auditImages($2) {
+    const imgs = $2("img");
+    const total = imgs.length;
+    let missingAlt = 0;
+    imgs.each((_, el) => {
+      const alt = $2(el).attr("alt");
+      if (alt === void 0) missingAlt++;
+    });
+    if (total === 0) {
+      return { total, missingAlt: 0, status: "pass", message: "No images on page" };
+    }
+    if (missingAlt > 0) {
+      return { total, missingAlt, status: "warning", message: `${missingAlt} of ${total} images missing an alt attribute` };
+    }
+    return { total, missingAlt: 0, status: "pass", message: `All ${total} images have alt attributes` };
+  }
+  auditIndexability($2) {
+    var _a3;
+    const robots = ((_a3 = $2('meta[name="robots"]').attr("content") || $2('meta[name="googlebot"]').attr("content") || null) == null ? void 0 : _a3.toLowerCase()) || null;
+    const indexable = !robots || !robots.includes("noindex");
+    if (!indexable) {
+      return { indexable, robots, status: "warning", message: `Page is set to noindex (robots: "${robots}")` };
+    }
+    return { indexable, robots, status: "pass", message: "Page is indexable" };
+  }
+  auditOpenGraph($2) {
+    const required = ["og:title", "og:description", "og:image"];
+    const missing = required.filter(
+      (prop2) => {
+        var _a3;
+        return !((_a3 = $2(`meta[property="${prop2}"]`).attr("content")) == null ? void 0 : _a3.trim());
+      }
+    );
+    if (missing.length === required.length) {
+      return { missing, status: "missing", message: "No Open Graph tags found" };
+    }
+    if (missing.length > 0) {
+      return { missing, status: "warning", message: `Missing Open Graph tags: ${missing.join(", ")}` };
+    }
+    return { missing, status: "pass", message: "Open Graph tags present" };
+  }
+  auditViewport($2) {
+    const present = $2('meta[name="viewport"]').attr("content") != null;
+    if (!present) {
+      return { present, status: "warning", message: "No viewport meta tag (mobile-friendliness)" };
+    }
+    return { present, status: "pass", message: "Viewport meta tag present" };
+  }
+  auditLang($2) {
+    var _a3;
+    const value = ((_a3 = $2("html").attr("lang")) == null ? void 0 : _a3.trim()) || null;
+    if (!value) {
+      return { value: null, status: "warning", message: "No lang attribute on <html>" };
+    }
+    return { value, status: "pass", message: `Document language: ${value}` };
+  }
+  auditStructuredData($2) {
+    const count = $2('script[type="application/ld+json"]').length;
+    if (count === 0) {
+      return { count, status: "warning", message: "No JSON-LD structured data" };
+    }
+    return { count, status: "pass", message: `${count} JSON-LD block(s) found` };
+  }
+  countWords($2) {
+    $2("script, style, noscript, template").remove();
+    const text2 = $2("body").text().replace(/\s+/g, " ").trim();
+    if (!text2) return 0;
+    return text2.split(" ").filter(Boolean).length;
   }
 }
 class RobotsParser {
@@ -51088,14 +51134,14 @@ class RobotsParser {
         signal: AbortSignal.timeout(1e4)
       });
       if (!response2.ok) {
-        this.rulesCache.set(origin, { allowRules: [], disallowRules: [] });
+        this.rulesCache.set(origin, { allowRules: [], disallowRules: [], sitemaps: [] });
         return;
       }
       const text2 = await response2.text();
       const rules = this.parse(text2);
       this.rulesCache.set(origin, rules);
     } catch {
-      this.rulesCache.set(origin, { allowRules: [], disallowRules: [] });
+      this.rulesCache.set(origin, { allowRules: [], disallowRules: [], sitemaps: [] });
     }
   }
   /**
@@ -51130,6 +51176,7 @@ class RobotsParser {
     const lines = content.split(/\r?\n/);
     const allowRules = [];
     const disallowRules = [];
+    const sitemaps = [];
     let isRelevantBlock = false;
     let lastDirectiveWasAgent = false;
     for (const rawLine of lines) {
@@ -51142,6 +51189,11 @@ class RobotsParser {
       if (colonIdx === -1) continue;
       const directive = line.substring(0, colonIdx).trim().toLowerCase();
       const value = line.substring(colonIdx + 1).trim();
+      if (directive === "sitemap") {
+        if (value.length > 0) sitemaps.push(value);
+        lastDirectiveWasAgent = false;
+        continue;
+      }
       if (directive === "user-agent") {
         if (!lastDirectiveWasAgent) {
           isRelevantBlock = value === "*";
@@ -51162,7 +51214,14 @@ class RobotsParser {
         }
       }
     }
-    return { allowRules, disallowRules };
+    return { allowRules, disallowRules, sitemaps };
+  }
+  /**
+   * Return sitemap URLs declared in the origin's robots.txt (if any).
+   */
+  getSitemaps(origin) {
+    var _a3;
+    return ((_a3 = this.rulesCache.get(origin)) == null ? void 0 : _a3.sitemaps) ?? [];
   }
   /**
    * Check if a path matches a robots.txt rule.
@@ -51187,6 +51246,83 @@ class RobotsParser {
     this.fetchedDomains.clear();
   }
 }
+const MAX_SITEMAPS = 50;
+const MAX_URLS = 5e4;
+const FETCH_TIMEOUT_MS = 15e3;
+class SitemapParser {
+  /**
+   * Discover page URLs from a site's sitemaps.
+   *
+   * @param origin       e.g. "https://example.com"
+   * @param robotsSitemaps sitemap URLs declared in robots.txt (preferred)
+   * @param userAgent
+   */
+  async discover(origin, robotsSitemaps, userAgent) {
+    const toVisit = [];
+    const seenSitemaps = /* @__PURE__ */ new Set();
+    const seeds = robotsSitemaps.length > 0 ? robotsSitemaps : [`${origin}/sitemap.xml`];
+    for (const s of seeds) {
+      if (!seenSitemaps.has(s)) {
+        seenSitemaps.add(s);
+        toVisit.push(s);
+      }
+    }
+    const pageUrls = /* @__PURE__ */ new Set();
+    let fetched = 0;
+    while (toVisit.length > 0 && fetched < MAX_SITEMAPS && pageUrls.size < MAX_URLS) {
+      const sitemapUrl = toVisit.shift();
+      fetched++;
+      const xml2 = await this.fetchText(sitemapUrl, userAgent);
+      if (!xml2) continue;
+      const { childSitemaps, urls } = this.parse(xml2);
+      for (const child of childSitemaps) {
+        if (!seenSitemaps.has(child) && seenSitemaps.size < MAX_SITEMAPS) {
+          seenSitemaps.add(child);
+          toVisit.push(child);
+        }
+      }
+      for (const u of urls) {
+        if (pageUrls.size >= MAX_URLS) break;
+        pageUrls.add(u);
+      }
+    }
+    return Array.from(pageUrls);
+  }
+  parse(xml2) {
+    const childSitemaps = [];
+    const urls = [];
+    try {
+      const $2 = load(xml2, { xmlMode: true });
+      const isIndex = $2("sitemapindex").length > 0;
+      $2("loc").each((_, el) => {
+        const loc = $2(el).text().trim();
+        if (!loc) return;
+        if (isIndex) childSitemaps.push(loc);
+        else urls.push(loc);
+      });
+      if (!isIndex && urls.length > 0 && childSitemaps.length === 0) {
+        const looksLikeIndex = urls.every((u) => /\.xml(\?|$)/i.test(u));
+        if (looksLikeIndex && urls.length <= MAX_SITEMAPS) {
+          return { childSitemaps: urls, urls: [] };
+        }
+      }
+    } catch {
+    }
+    return { childSitemaps, urls };
+  }
+  async fetchText(url, userAgent) {
+    try {
+      const response2 = await fetch(url, {
+        headers: { "User-Agent": userAgent, Accept: "application/xml,text/xml,*/*" },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+      });
+      if (!response2.ok) return null;
+      return await response2.text();
+    } catch {
+      return null;
+    }
+  }
+}
 class CrawlEngine {
   constructor() {
     __publicField(this, "httpClient");
@@ -51194,6 +51330,7 @@ class CrawlEngine {
     // Separate client for link checks — no rate limit
     __publicField(this, "seoAuditor");
     __publicField(this, "robotsParser");
+    __publicField(this, "sitemapParser");
     __publicField(this, "queue", null);
     __publicField(this, "linkCheckQueue", null);
     __publicField(this, "visited", /* @__PURE__ */ new Set());
@@ -51203,6 +51340,7 @@ class CrawlEngine {
     __publicField(this, "allLinks", []);
     __publicField(this, "seedOrigin", "");
     __publicField(this, "seedRootDomain", "");
+    __publicField(this, "sitemapUrls", []);
     __publicField(this, "settings", null);
     __publicField(this, "status", "idle");
     __publicField(this, "startTime", 0);
@@ -51215,6 +51353,7 @@ class CrawlEngine {
     this.linkCheckClient = new HttpClient();
     this.seoAuditor = new SeoAuditor();
     this.robotsParser = new RobotsParser();
+    this.sitemapParser = new SitemapParser();
   }
   /**
    * Start a crawl with the given settings.
@@ -51236,6 +51375,25 @@ class CrawlEngine {
     this.seedOrigin = seedParsed.origin;
     this.seedRootDomain = this.extractRootDomain(seedParsed.hostname);
     await this.robotsParser.fetchRobotsTxt(settings.seedUrl, this.httpClient.getUserAgent());
+    if (settings.useSitemap !== false) {
+      try {
+        const declared = this.robotsParser.getSitemaps(this.seedOrigin);
+        const found = await this.sitemapParser.discover(
+          this.seedOrigin,
+          declared,
+          this.httpClient.getUserAgent()
+        );
+        const internal2 = /* @__PURE__ */ new Set();
+        for (const u of found) {
+          if (this.classifyLink(u) === "internal") {
+            internal2.add(this.normalizeUrl(u));
+          }
+        }
+        this.sitemapUrls = Array.from(internal2);
+      } catch {
+        this.sitemapUrls = [];
+      }
+    }
     this.queue = new PQueue({ concurrency: settings.concurrency });
     this.linkCheckQueue = new PQueue({ concurrency: settings.concurrency * 3 });
     this.status = "crawling";
@@ -51243,6 +51401,14 @@ class CrawlEngine {
     const normalizedSeed = this.normalizeUrl(settings.seedUrl);
     this.visited.add(normalizedSeed);
     this.urlQueue.push(normalizedSeed);
+    if (settings.useSitemap !== false) {
+      for (const url of this.sitemapUrls) {
+        if (!this.visited.has(url) && this.robotsParser.isAllowed(url)) {
+          this.visited.add(url);
+          this.urlQueue.push(url);
+        }
+      }
+    }
     this.emitProgress();
     await this.processQueue();
     if (this.linkCheckQueue) {
@@ -51266,7 +51432,8 @@ class CrawlEngine {
     return {
       pages: [...this.pages],
       allLinks: [...this.allLinks],
-      progress: this.getProgress()
+      progress: this.getProgress(),
+      sitemapUrls: [...this.sitemapUrls]
     };
   }
   getProgress() {
@@ -51288,7 +51455,7 @@ class CrawlEngine {
     while (this.urlQueue.length > 0 && this.status === "crawling") {
       if (this.pages.length >= (((_a3 = this.settings) == null ? void 0 : _a3.maxPages) || 800)) break;
       const batch = this.urlQueue.splice(0, ((_b2 = this.settings) == null ? void 0 : _b2.concurrency) || 10);
-      const promises = batch.map(
+      const promises2 = batch.map(
         (url) => this.queue.add(async () => {
           var _a4;
           if (this.status !== "crawling") return;
@@ -51296,7 +51463,7 @@ class CrawlEngine {
           await this.crawlPage(url);
         })
       );
-      await Promise.all(promises);
+      await Promise.all(promises2);
       await this.queue.onIdle();
     }
   }
@@ -51506,7 +51673,7 @@ class CrawlEngine {
     }
   }
   hasSeoIssues(seo) {
-    return seo.title.status !== "pass" || seo.metaDescription.status !== "pass" || seo.metaKeywords.status !== "pass";
+    return seo.title.status !== "pass" || seo.metaDescription.status !== "pass" || seo.h1.status !== "pass" || seo.canonical.status !== "pass" || seo.images.status !== "pass" || seo.indexability.status !== "pass";
   }
   emitProgress() {
     if (this.onProgress) {
@@ -51521,6 +51688,7 @@ class CrawlEngine {
     this.allLinks = [];
     this.seedOrigin = "";
     this.seedRootDomain = "";
+    this.sitemapUrls = [];
     this.settings = null;
     this.status = "idle";
     this.startTime = 0;
@@ -51532,8 +51700,95 @@ class CrawlEngine {
     if (this.linkCheckQueue) this.linkCheckQueue.clear();
   }
 }
+class CrawlStore {
+  constructor() {
+    __publicField(this, "dirPromise", null);
+  }
+  async dir() {
+    if (!this.dirPromise) {
+      this.dirPromise = (async () => {
+        const dir = path.join(app.getPath("userData"), "crawls");
+        await promises.mkdir(dir, { recursive: true });
+        return dir;
+      })();
+    }
+    return this.dirPromise;
+  }
+  async indexPath() {
+    return path.join(await this.dir(), "index.json");
+  }
+  async readIndex() {
+    try {
+      const raw = await promises.readFile(await this.indexPath(), "utf-8");
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  async writeIndex(index2) {
+    await promises.writeFile(await this.indexPath(), JSON.stringify(index2, null, 2), "utf-8");
+  }
+  /**
+   * Save a crawl. Returns the metadata entry.
+   */
+  async save(seedUrl, results) {
+    const dir = await this.dir();
+    const brokenCount = results.allLinks.filter((l) => l.isBroken).length;
+    const redirectCount = results.allLinks.filter((l) => l.redirectChain.length > 0).length;
+    const id = `${Date.now()}-${results.pages.length}`;
+    const meta = {
+      id,
+      seedUrl,
+      savedAt: Date.now(),
+      pageCount: results.pages.length,
+      brokenCount,
+      redirectCount,
+      seoIssueCount: results.progress.seoIssuesCount
+    };
+    const payload = { meta, results };
+    await promises.writeFile(path.join(dir, `${id}.json`), JSON.stringify(payload), "utf-8");
+    const index2 = await this.readIndex();
+    index2.unshift(meta);
+    await this.writeIndex(index2);
+    return meta;
+  }
+  /**
+   * List saved crawl metadata, newest first.
+   */
+  async list() {
+    const index2 = await this.readIndex();
+    return index2.slice().sort((a, b) => b.savedAt - a.savedAt);
+  }
+  /**
+   * Load a full saved crawl by id.
+   */
+  async load(id) {
+    try {
+      const raw = await promises.readFile(path.join(await this.dir(), `${id}.json`), "utf-8");
+      return JSON.parse(raw);
+    } catch {
+      return null;
+    }
+  }
+  /**
+   * Delete a saved crawl by id.
+   */
+  async delete(id) {
+    const dir = await this.dir();
+    try {
+      await promises.unlink(path.join(dir, `${id}.json`));
+    } catch {
+    }
+    const index2 = await this.readIndex();
+    await this.writeIndex(index2.filter((m) => m.id !== id));
+    return true;
+  }
+}
 let engine = null;
 let latestResults = null;
+let latestSeedUrl = "";
+const store = new CrawlStore();
 function registerCrawlHandlers(getWin) {
   ipcMain.handle("crawl:start", async (_event, settings) => {
     engine = new CrawlEngine();
@@ -51551,6 +51806,13 @@ function registerCrawlHandlers(getWin) {
     };
     try {
       latestResults = await engine.start(settings, onProgress, onPage);
+      latestSeedUrl = settings.seedUrl;
+      if (latestResults.progress.status === "completed" && latestResults.pages.length > 0) {
+        try {
+          await store.save(settings.seedUrl, latestResults);
+        } catch {
+        }
+      }
       return { success: true, results: latestResults };
     } catch (err) {
       return { success: false, error: err.message };
@@ -51622,6 +51884,37 @@ function registerCrawlHandlers(getWin) {
   });
   ipcMain.handle("crawl:default-ua", async () => {
     return HttpClient.getDefaultUserAgent();
+  });
+  ipcMain.handle("history:save", async () => {
+    var _a3;
+    const results = latestResults || (engine ? engine.getResults() : null);
+    if (!results || results.pages.length === 0) {
+      return { success: false, error: "No results to save" };
+    }
+    try {
+      const meta = await store.save(latestSeedUrl || ((_a3 = results.pages[0]) == null ? void 0 : _a3.url) || "crawl", results);
+      return { success: true, meta };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+  ipcMain.handle("history:list", async () => {
+    try {
+      return await store.list();
+    } catch {
+      return [];
+    }
+  });
+  ipcMain.handle("history:load", async (_event, id) => {
+    return await store.load(id);
+  });
+  ipcMain.handle("history:delete", async (_event, id) => {
+    try {
+      await store.delete(id);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 }
 function escapeCsvField(value) {
@@ -51712,29 +52005,53 @@ function generateRedirectsCsv(links) {
   ]);
   return [headers2.join(","), ...rows.map((r) => r.join(","))].join("\n");
 }
+function pageHasSeoIssue(p) {
+  const s = p.seo;
+  return !!s && (s.title.status !== "pass" || s.metaDescription.status !== "pass" || s.h1.status !== "pass" || s.canonical.status !== "pass" || s.images.status !== "pass" || s.indexability.status !== "pass");
+}
 function generateSeoCsv(pages) {
-  const issues = pages.filter(
-    (p) => p.seo && (p.seo.title.status !== "pass" || p.seo.metaDescription.status !== "pass" || p.seo.metaKeywords.status !== "pass")
-  );
+  const issues = pages.filter(pageHasSeoIssue);
   const headers2 = [
     "URL",
     "Title Status",
-    "Title Message",
+    "Title",
     "Description Status",
-    "Description Message",
-    "Keywords Status",
-    "Keywords Message"
+    "Description",
+    "H1 Status",
+    "H1 Count",
+    "Canonical Status",
+    "Canonical",
+    "Images Status",
+    "Images Missing Alt",
+    "Indexable",
+    "Robots",
+    "Open Graph Status",
+    "Viewport",
+    "Lang",
+    "Structured Data",
+    "Word Count"
   ];
   const rows = issues.map((page) => {
-    var _a3, _b2, _c2, _d2, _e2, _f2;
+    const s = page.seo;
     return [
       escapeCsvField(page.url),
-      escapeCsvField((_a3 = page.seo) == null ? void 0 : _a3.title.status),
-      escapeCsvField((_b2 = page.seo) == null ? void 0 : _b2.title.message),
-      escapeCsvField((_c2 = page.seo) == null ? void 0 : _c2.metaDescription.status),
-      escapeCsvField((_d2 = page.seo) == null ? void 0 : _d2.metaDescription.message),
-      escapeCsvField((_e2 = page.seo) == null ? void 0 : _e2.metaKeywords.status),
-      escapeCsvField((_f2 = page.seo) == null ? void 0 : _f2.metaKeywords.message)
+      escapeCsvField(s == null ? void 0 : s.title.status),
+      escapeCsvField(s == null ? void 0 : s.title.value),
+      escapeCsvField(s == null ? void 0 : s.metaDescription.status),
+      escapeCsvField(s == null ? void 0 : s.metaDescription.value),
+      escapeCsvField(s == null ? void 0 : s.h1.status),
+      escapeCsvField(s == null ? void 0 : s.h1.count),
+      escapeCsvField(s == null ? void 0 : s.canonical.status),
+      escapeCsvField(s == null ? void 0 : s.canonical.value),
+      escapeCsvField(s == null ? void 0 : s.images.status),
+      escapeCsvField(s == null ? void 0 : s.images.missingAlt),
+      escapeCsvField((s == null ? void 0 : s.indexability.indexable) ? "yes" : "no"),
+      escapeCsvField(s == null ? void 0 : s.indexability.robots),
+      escapeCsvField(s == null ? void 0 : s.openGraph.status),
+      escapeCsvField((s == null ? void 0 : s.viewport.present) ? "yes" : "no"),
+      escapeCsvField(s == null ? void 0 : s.lang.value),
+      escapeCsvField(s == null ? void 0 : s.structuredData.count),
+      escapeCsvField(s == null ? void 0 : s.wordCount)
     ];
   });
   return [headers2.join(","), ...rows.map((r) => r.join(","))].join("\n");
