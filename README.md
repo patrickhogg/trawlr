@@ -33,11 +33,30 @@
 - Records the full redirect chain with HTTP status codes per hop
 - Visualizes the complete path from original URL to final destination
 
-### 🏷️ SEO Meta Tag Auditing
+### 🏷️ SEO Auditing
 - Validates `<title>` tags (recommended: 30–60 characters)
 - Validates `<meta name="description">` (recommended: 120–160 characters)
+- **Headings** — flags missing or multiple `<h1>` tags
+- **Canonical** — detects a missing `<link rel="canonical">`
+- **Image alt text** — reports images missing an `alt` attribute
+- **Indexability** — surfaces `noindex` (robots/googlebot meta)
+- **Open Graph** — checks `og:title` / `og:description` / `og:image`
+- **Viewport, `lang`, structured data (JSON-LD)**, and per-page word count
+- **Cross-page duplicates** — flags pages sharing the same title or description
 - Checks for `<meta name="keywords">` presence
 - Color-coded status badges: ✅ Pass, ⚠️ Warning, ❌ Missing
+
+### 🗺️ Sitemap & Orphan Analysis
+- Auto-discovers XML sitemaps via `robots.txt` and conventional paths (following sitemap-index files)
+- Seeds the crawl from the sitemap so pages that aren't linked internally are still found
+- **Orphan pages** — crawled pages with zero internal inlinks
+- **Coverage gaps** — URLs in the sitemap that weren't crawled, and crawled pages missing from the sitemap
+- Per-page **inlink counts** in the All Pages report
+
+### 🕓 Crawl History & Comparison
+- Completed crawls are **saved to disk automatically**
+- Reopen any past crawl from the **History** tab
+- **Compare** two crawls to catch regressions over time — new vs. resolved broken links, SEO regressions/improvements, added/removed pages, and status-code changes
 
 ### 🔍 Link Classification
 - Automatically classifies every link as **Internal** or **External**
@@ -49,13 +68,17 @@
 - **Max pages cap** — prevent runaway crawls (default: 800, adjustable)
 - **Rate limiting** — tunable delay between requests to avoid overwhelming servers
 - **User-Agent** — defaults to Chrome; fully editable with one-click reset
+- **Sitemap discovery** — toggle sitemap-seeded crawling on/off
 - **Robots.txt** — always respected
 
 ### 📊 In-App Reports & CSV Export
-- **All Pages** — sortable, filterable table with status codes and SEO audit results
+- **All Pages** — sortable, filterable table with status codes, SEO results, and inlink counts
 - **Broken Links** — focused view of broken URLs with source pages
 - **Redirects** — redirect chains with per-hop status codes
-- **SEO Issues** — pages failing meta tag validation
+- **SEO Issues** — pages failing SEO checks, with faceted status filters and duplicate detection
+- **Sitemap** — orphan pages and sitemap coverage gaps
+- **History** — saved crawls with load, delete, and compare
+- Faceted **filter chips** and click-to-sort columns across every report
 - Export any view to **CSV** with one click
 
 ---
@@ -98,8 +121,8 @@ npm run build:mac
 ```
 
 Produces:
-- `Trawlr-1.0.0-mac-arm64.dmg` — drag-to-Applications installer
-- `Trawlr-1.0.0-mac-arm64.zip` — portable zip
+- `Trawlr-1.3.0-mac-arm64.dmg` — drag-to-Applications installer
+- `Trawlr-1.3.0-mac-arm64.zip` — portable zip
 
 #### Windows
 
@@ -108,8 +131,8 @@ npm run build:win
 ```
 
 Produces:
-- `Trawlr-1.0.0-win-x64.exe` — NSIS installer (custom install directory)
-- `Trawlr-1.0.0-win-x64.exe` — portable executable
+- `Trawlr-1.3.0-win-x64.exe` — NSIS installer (custom install directory)
+- `Trawlr-1.3.0-win-x64.exe` — portable executable
 
 #### Linux
 
@@ -118,8 +141,8 @@ npm run build:linux
 ```
 
 Produces:
-- `Trawlr-1.0.0-linux-x86_64.AppImage` — portable AppImage
-- `Trawlr-1.0.0-linux-amd64.deb` — Debian package
+- `Trawlr-1.3.0-linux-x86_64.AppImage` — portable AppImage
+- `Trawlr-1.3.0-linux-amd64.deb` — Debian package
 
 #### All Platforms
 
@@ -155,23 +178,37 @@ trawlr/
 │   ├── crawler/
 │   │   ├── CrawlEngine.ts         # Core BFS crawler with concurrency
 │   │   ├── HttpClient.ts          # HTTP client with redirect tracking
-│   │   ├── SeoAuditor.ts          # Meta tag validation engine
-│   │   └── RobotsParser.ts        # robots.txt compliance
+│   │   ├── SeoAuditor.ts          # On-page SEO audit engine
+│   │   ├── RobotsParser.ts        # robots.txt compliance + sitemap discovery
+│   │   └── SitemapParser.ts       # XML sitemap discovery & parsing
+│   ├── persistence/
+│   │   └── CrawlStore.ts          # Save/load/list/delete saved crawls
 │   └── ipc/
-│       └── crawlHandlers.ts       # IPC bridge + CSV export
+│       └── crawlHandlers.ts       # IPC bridge + CSV export + history
 ├── src/                           # Vue 3 renderer
 │   ├── App.vue                    # Root layout with tabs
 │   ├── types.ts                   # TypeScript interfaces
 │   ├── style.css                  # Tailwind + dark theme design system
+│   ├── composables/
+│   │   └── useDataTable.ts        # Reusable search/facet/sort engine
+│   ├── lib/
+│   │   ├── analysis.ts            # Duplicates, inlinks, orphan/sitemap coverage
+│   │   └── diff.ts                # Crawl-to-crawl comparison
 │   ├── components/
 │   │   ├── CrawlControls.vue      # URL input + start/stop
-│   │   └── ProgressBar.vue        # Live crawl statistics
+│   │   ├── ProgressBar.vue        # Live crawl statistics
+│   │   ├── TableToolbar.vue       # Search + faceted filter chips
+│   │   └── UrlCell.vue            # Click-to-copy full-URL popover
 │   └── views/
-│       ├── AllPagesView.vue       # All crawled pages table
+│       ├── AllPagesView.vue       # All crawled pages table (+ inlinks)
 │       ├── BrokenLinksView.vue    # Broken link report
 │       ├── RedirectsView.vue      # Redirect chain visualization
-│       ├── SeoIssuesView.vue      # SEO validation results
+│       ├── SeoIssuesView.vue      # SEO audit results + duplicates
+│       ├── SitemapView.vue        # Orphan pages + sitemap coverage
+│       ├── HistoryView.vue        # Saved crawls + comparison
 │       └── SettingsView.vue       # Crawl configuration
+├── build/icon.png                 # App icon (1024×1024)
+├── docs/architecture.md           # Architecture reference
 ├── index.html                     # Entry point
 ├── vite.config.ts                 # Vite + Electron + Tailwind config
 └── package.json
@@ -219,6 +256,8 @@ All settings are accessible from the **Settings** tab within the app:
 | Concurrent Requests | 10 | Number of pages crawled simultaneously (1–50) |
 | Max Pages | 800 | Total page limit before crawl stops |
 | Rate Limit | 100ms | Delay between requests |
+| Check External Links | Off | HTTP-check external links for broken status |
+| Discover & Use Sitemap | On | Fetch the XML sitemap to seed the crawl and enable orphan analysis |
 | User-Agent | Chrome 125 | HTTP User-Agent header (editable, resettable) |
 
 ---
