@@ -22,14 +22,32 @@ export class SitemapParser {
   async discover(origin: string, robotsSitemaps: string[], userAgent: string): Promise<string[]> {
     const toVisit: string[] = []
     const seenSitemaps = new Set<string>()
-
-    // Prefer sitemaps declared in robots.txt; otherwise probe the conventional path.
-    const seeds = robotsSitemaps.length > 0 ? robotsSitemaps : [`${origin}/sitemap.xml`]
-    for (const s of seeds) {
-      if (!seenSitemaps.has(s)) {
-        seenSitemaps.add(s)
-        toVisit.push(s)
+    const enqueue = (url: string) => {
+      if (!seenSitemaps.has(url)) {
+        seenSitemaps.add(url)
+        toVisit.push(url)
       }
+    }
+
+    // 1. Sitemaps declared in robots.txt (authoritative when correct).
+    for (const s of robotsSitemaps) {
+      enqueue(s)
+      // Declarations sometimes point at the wrong host (typo, stale CMS export).
+      // If so, also try the same path on the crawled origin.
+      try {
+        const declared = new URL(s)
+        if (declared.host !== new URL(origin).host) {
+          enqueue(new URL(declared.pathname + declared.search, origin).href)
+        }
+      } catch {
+        // Not a valid absolute URL — ignore.
+      }
+    }
+
+    // 2. Always probe conventional locations too, so a broken/absent declaration
+    //    doesn't suppress discovery of a sitemap that really exists.
+    for (const path of ['/sitemap.xml', '/sitemap_index.xml', '/wp-sitemap.xml']) {
+      enqueue(`${origin}${path}`)
     }
 
     const pageUrls = new Set<string>()
