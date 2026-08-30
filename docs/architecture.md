@@ -46,9 +46,9 @@ Communication between the two processes is handled via Electron's IPC (Inter-Pro
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| Desktop Shell | Electron 30+ | Native desktop window, filesystem access, IPC |
+| Desktop Shell | Electron 44 | Native desktop window, filesystem access, IPC |
 | Frontend | Vue 3 (Composition API) | Reactive UI with tabbed views |
-| Build Tool | Vite 5 + vite-plugin-electron | Fast HMR dev server, production bundling |
+| Build Tool | Vite 8 + vite-plugin-electron | Fast HMR dev server, production bundling |
 | Styling | Tailwind CSS 4 | Utility-first CSS with dark theme |
 | HTML Parsing | cheerio | Server-side jQuery-like HTML parsing |
 | Concurrency | p-queue | Promise-based concurrency control |
@@ -649,7 +649,8 @@ npm run dev          # Start Vite dev server + Electron with HMR
 | `npm run build` | Current platform | Auto-detected |
 | `npm run build:mac` | macOS | `.dmg` + `.zip` |
 | `npm run build:win` | Windows | `.exe` (NSIS installer) + portable `.exe` |
-| `npm run build:linux` | Linux | `.AppImage` + `.deb` |
+| `npm run build:linux` | Linux | `.flatpak` |
+| `npm run build:flatpak` | Linux | `.flatpak` (explicit target) |
 
 All build output goes to the `release/` directory (gitignored).
 

@@ -136,13 +136,53 @@ Produces:
 
 #### Linux
 
+Linux builds ship as a [Flatpak](https://flatpak.org/), which runs on every major
+distribution and sandboxes the app. Building one requires `flatpak` and
+`flatpak-builder` on the host, plus the Flathub remote:
+
 ```bash
-npm run build:linux
+# Arch / Omarchy
+sudo pacman -S --needed flatpak flatpak-builder
+
+# Debian / Ubuntu
+sudo apt install flatpak flatpak-builder
+
+# Fedora
+sudo dnf install flatpak flatpak-builder
+
+# All distributions — add the Flathub remote
+flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+```
+
+Then:
+
+```bash
+npm run build:flatpak
 ```
 
 Produces:
-- `Trawlr-1.3.0-linux-x86_64.AppImage` — portable AppImage
-- `Trawlr-1.3.0-linux-amd64.deb` — Debian package
+- `Trawlr-1.3.0-linux-x86_64.flatpak` — single-file Flatpak bundle
+
+The first build downloads the Freedesktop runtime/SDK and the Electron base app
+(a few GB); later builds reuse them.
+
+Each build also stages roughly 750 MB in `$TMPDIR` and does not clean up after
+itself. On distributions where `/tmp` is a small tmpfs (Arch and Omarchy default
+to half of RAM), a few consecutive builds will exhaust it and fail with a bare
+`Unknown system error -122`. Point the build at disk-backed scratch space to
+avoid it, and clear old staging dirs periodically:
+
+```bash
+TMPDIR=~/.cache/trawlr-build npm run build:flatpak
+rm -rf /tmp/flatpak-bundler-*
+```
+
+Install and run the result with:
+
+```bash
+flatpak install --user release/Trawlr-1.3.0-linux-x86_64.flatpak
+flatpak run com.trawlr.app
+```
 
 #### All Platforms
 
